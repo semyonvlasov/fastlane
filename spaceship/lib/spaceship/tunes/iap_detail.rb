@@ -153,6 +153,10 @@ module Spaceship
           }
         end
 
+        if !@review_screenshot && raw_data['versions'] && raw_data['versions'][0] && raw_data['versions'][0]['reviewScreenshot']
+          old_review_screenshot = raw_data['versions'][0]['reviewScreenshot']
+        end
+
         raw_data.set(["versions"], [{ reviewNotes: { value: @review_notes }, contentHosting: raw_data['versions'].first[:contentHosting], "details" => { "value" => versions_array }, id: raw_data["versions"].first["id"] }])
 
         # transform pricingDetails
@@ -188,7 +192,10 @@ module Spaceship
 
         raw_data.set(["pricingIntervals"], intervals_array)
 
-        if @review_screenshot
+        if old_review_screenshot
+          raw_data["versions"][0]["reviewScreenshot"] = old_review_screenshot
+
+        elsif @review_screenshot
           # Upload Screenshot
           upload_file = UploadFile.from_path @review_screenshot
           screenshot_data = client.upload_purchase_review_screenshot(application.apple_id, upload_file)
