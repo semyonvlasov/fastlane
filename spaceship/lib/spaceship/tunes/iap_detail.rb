@@ -33,6 +33,9 @@ module Spaceship
       # @return (Hash) subscription pricing target
       attr_accessor :subscription_price_target
 
+      # whether to append new pricing to the current intervals list
+      attr_accessor :append_new_pricing_intervals
+
       attr_mapping({
         'adamId' => :purchase_id,
         'referenceName.value' => :reference_name,
@@ -179,7 +182,7 @@ module Spaceship
         end
 
         if subscription_price_target
-          intervals_array = []
+          intervals_array = [] unless append_new_pricing_intervals
           pricing_calculator = client.iap_subscription_pricing_target(app_id: application.apple_id, purchase_id: purchase_id, currency: subscription_price_target[:currency], tier: subscription_price_target[:tier])
           pricing_calculator.each do |language_code, value|
             intervals_array << {
