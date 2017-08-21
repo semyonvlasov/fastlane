@@ -188,8 +188,8 @@ module Spaceship
             intervals_array << {
               value: {
                 tierStem: value["tierStem"],
-                priceTierEffectiveDate: value["priceTierEffectiveDate"],
-                priceTierEndDate: value["priceTierEndDate"],
+                priceTierEffectiveDate: subscription_price_target[:begin_date] || value["priceTierEffectiveDate"],
+                priceTierEndDate: subscription_price_target[:end_date] || value["priceTierEndDate"],
                 country: language_code,
                 grandfathered: { value: "FUTURE_NONE" }
               }
