@@ -90,7 +90,12 @@ module Spaceship
           }
         end
 
-        raw_data.set(["versions"], [{ reviewNotes: { value: @review_notes }, contentHosting: raw_data['versions'].first['contentHosting'], "details" => { "value" => new_versions }, "id" => raw_data["versions"].first["id"] }])
+        version = { reviewNotes: { value: @review_notes }, contentHosting: raw_data['versions'].first['contentHosting'], "details" => { "value" => new_versions }, "id" => raw_data["versions"].first["id"] }
+        if raw_data['versions'] && raw_data['versions'][0] && raw_data['versions'][0]['reviewScreenshot']
+          # save the review screenshot if none are passed in
+          version[:reviewScreenshot] = raw_data['versions'][0]['reviewScreenshot']
+        end
+        raw_data.set(["versions"], [version])
       end
 
       # transforms user-set intervals to iTC ones
