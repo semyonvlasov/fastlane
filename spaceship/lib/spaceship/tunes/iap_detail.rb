@@ -90,7 +90,7 @@ module Spaceship
           }
         end
 
-        version = { reviewNotes: { value: @review_notes }, contentHosting: raw_data['versions'].first['contentHosting'], "details" => { "value" => new_versions }, "id" => raw_data["versions"].first["id"] }
+        version = { reviewNotes: { value: @review_notes }, contentHosting: raw_data['versions'].first['contentHosting'], "details" => { "value" => new_versions }, "id" => raw_data["versions"].first["id"] }.with_indifferent_access
         if raw_data['versions'] && raw_data['versions'][0] && raw_data['versions'][0]['reviewScreenshot']
           # save the review screenshot if none are passed in
           version[:reviewScreenshot] = raw_data['versions'][0]['reviewScreenshot']
@@ -161,8 +161,8 @@ module Spaceship
           }
         end
 
-        if !@review_screenshot && raw_data['versions'] && raw_data['versions'][0] && raw_data['versions'][0]['reviewScreenshot']
-          old_review_screenshot = raw_data['versions'][0]['reviewScreenshot']
+        if !@review_screenshot && raw_data['versions'] && raw_data['versions'][0] && raw_review_screenshot = raw_data['versions'][0].with_indifferent_access['reviewScreenshot']
+          old_review_screenshot = raw_review_screenshot
         end
         if @review_notes
           review_notes = { value: @review_notes }
