@@ -170,13 +170,18 @@ module Spaceship
         # transform pricingDetails
         intervals_array = []
         pricing_intervals.each do |interval|
+          # `end_date == nil` means this is the current active pricing interval
+          # and since we're appending new intervals, we need to turn the current active ones from 'CURRENT_GF' to 'FUTURE_GF'
+          if interval[:end_date].nil? && append_new_pricing_intervals
+            grandfathered_object = { 'value' => 'FUTURE_GF' }
+          end
           intervals_array << {
             "value" =>  {
               "tierStem" =>  interval[:tier],
               "priceTierEffectiveDate" =>  interval[:begin_date],
               "priceTierEndDate" =>  interval[:end_date],
               "country" =>  interval[:country] || "WW",
-              "grandfathered" =>  interval[:grandfathered]
+              "grandfathered" =>  grandfathered_object || interval[:grandfathered]
             }
           }
         end
