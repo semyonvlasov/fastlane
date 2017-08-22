@@ -48,7 +48,11 @@ module Spaceship
 
       class << self
         def factory(attrs)
-          return self.new(attrs)
+          self.new(attrs)
+
+          store_locale_code_to_version_detail_id
+          store_review_screenshot
+          return self
         end
       end
 
@@ -81,19 +85,23 @@ module Spaceship
         end
         new_versions = []
         value.each do |language, current_version|
-          new_versions << {
+          new_version = {
             "value" =>   {
               "name" =>  { "value" => current_version[:name] },
               "description" =>  { "value" => current_version[:description] },
               "localeCode" =>  language.to_s
             }
           }
+          if locale_code_to_version_detail_id[language.to_s]
+            new_version['value']['id'] = locale_code_to_version_detail_id[language.to_s]
+          end
+          new_versions << new_version
         end
 
         version = { reviewNotes: { value: @review_notes }, contentHosting: raw_data['versions'].first['contentHosting'], "details" => { "value" => new_versions }, "id" => raw_data["versions"].first["id"] }.with_indifferent_access
-        if raw_data['versions'] && raw_data['versions'][0] && raw_data['versions'][0]['reviewScreenshot']
-          # save the review screenshot if none are passed in
-          version[:reviewScreenshot] = raw_data['versions'][0]['reviewScreenshot']
+        if old_review_screenshot
+          # save the review screenshot
+          version[:reviewScreenshot] = old_review_screenshot
         end
         raw_data.set(["versions"], [version])
       end
@@ -152,18 +160,19 @@ module Spaceship
         # Transform localization versions back to original format.
         versions_array = []
         versions.each do |language, value|
-          versions_array << {
+          version = {
                     "value" =>  {
                       "description" => { "value" => value[:description] },
                       "name" => { "value" => value[:name] },
                       "localeCode" => language.to_s
                     }
           }
+          if locale_code_to_version_detail_id[language.to_s]
+            version['value']['id'] = locale_code_to_version_detail_id[language.to_s]
+          end
+          versions_array << version
         end
 
-        if !@review_screenshot && raw_data['versions'] && raw_data['versions'][0] && raw_review_screenshot = raw_data['versions'][0].with_indifferent_access['reviewScreenshot']
-          old_review_screenshot = raw_review_screenshot
-        end
         if @review_notes
           review_notes = { value: @review_notes }
         elsif raw_data['versions'] && raw_data['versions'][0] && raw_data['versions'][0]['reviewNotes']
@@ -210,7 +219,7 @@ module Spaceship
 
         raw_data.set(["pricingIntervals"], intervals_array)
 
-        if old_review_screenshot
+        if old_review_screenshot && !@review_screenshot
           raw_data["versions"][0]["reviewScreenshot"] = old_review_screenshot
 
         elsif @review_screenshot
@@ -285,6 +294,32 @@ module Spaceship
             .pricing_info
             .find { |i| i.country_code == interval[:country] }
         end
+      end
+
+      def store_locale_code_to_version_detail_id
+        return {} unless raw_data['versions']
+
+        @locale_code_to_version_detail_id_cache = raw_data['versions'].inject({}) do |memo, version|
+          version['details']['value'].each do |version_detail|
+            locale_code = version_detail['value']['localeCode']
+            memo[locale_code] = version_detail['value']['id']
+          end
+          memo
+        end
+      end
+
+      def locale_code_to_version_detail_id
+        @locale_code_to_version_detail_id_cache || {}
+      end
+
+      def store_review_screenshot
+        return nil unless raw_data['versions'] && raw_data['versions'][0] && raw_data['versions'][0].with_indifferent_access['reviewScreenshot']
+
+        @old_review_screenshot_hash = raw_data['versions'][0].with_indifferent_access['reviewScreenshot']
+      end
+
+      def old_review_screenshot
+        @old_review_screenshot_hash
       end
     end
   end
