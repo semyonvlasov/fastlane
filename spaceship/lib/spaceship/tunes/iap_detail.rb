@@ -48,11 +48,11 @@ module Spaceship
 
       class << self
         def factory(attrs)
-          self.new(attrs)
+          iap_detail = self.new(attrs)
 
-          store_locale_code_to_version_detail_id
-          store_review_screenshot
-          return self
+          iap_detail.store_locale_code_to_version_detail_id
+          iap_detail.store_review_screenshot
+          return iap_detail
         end
       end
 
