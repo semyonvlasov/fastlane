@@ -46,13 +46,17 @@ module Spaceship
         'clearedForSale.value' => :cleared_for_sale
       })
 
-      after_create :store_locale_code_to_version_detail_id
-      after_create :store_review_screenshot
-
       class << self
         def factory(attrs)
           return self.new(attrs)
         end
+      end
+
+      def initialize
+        super
+
+        store_locale_code_to_version_detail_id
+        store_review_screenshot
       end
 
       # @return (Hash) Hash of languages
