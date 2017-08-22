@@ -52,8 +52,8 @@ module Spaceship
         end
       end
 
-      def initialize
-        super
+      def initialize(attrs)
+        super(attrs)
 
         store_locale_code_to_version_detail_id
         store_review_screenshot
