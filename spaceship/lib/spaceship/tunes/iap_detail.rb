@@ -46,13 +46,12 @@ module Spaceship
         'clearedForSale.value' => :cleared_for_sale
       })
 
+      after_create :store_locale_code_to_version_detail_id
+      after_create :store_review_screenshot
+
       class << self
         def factory(attrs)
-          iap_detail = self.new(attrs)
-
-          iap_detail.store_locale_code_to_version_detail_id
-          iap_detail.store_review_screenshot
-          return iap_detail
+          return self.new(attrs)
         end
       end
 
