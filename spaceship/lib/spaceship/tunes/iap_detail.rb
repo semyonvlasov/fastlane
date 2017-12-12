@@ -137,14 +137,18 @@ module Spaceship
       #    }
       #  ]
       def pricing_intervals
-        @pricing_intervals ||= raw_data["pricingIntervals"].map do |interval|
-          {
-            tier: interval["value"]["tierStem"].to_i,
-            begin_date: interval["value"]["priceTierEffectiveDate"],
-            end_date: interval["value"]["priceTierEndDate"],
-            grandfathered: interval["value"]["grandfathered"],
-            country: interval["value"]["country"]
-          }
+        if raw_data["pricingIntervals"]
+          @pricing_intervals ||= raw_data["pricingIntervals"].map do |interval|
+            {
+              tier: interval["value"]["tierStem"].to_i,
+              begin_date: interval["value"]["priceTierEffectiveDate"],
+              end_date: interval["value"]["priceTierEndDate"],
+              grandfathered: interval["value"]["grandfathered"],
+              country: interval["value"]["country"]
+            }
+          end
+        else
+          @pricing_intervals = []
         end
       end
 
@@ -273,7 +277,7 @@ module Spaceship
       #
       # @return (true, false)
       def world_wide_pricing?
-        pricing_intervals.fetch(0, {})[:country] == "WW"
+        pricing_intervals.length > 0 && pricing_intervals.fetch(0, {})[:country] == "WW"
       end
 
       # Maps a single pricing interval to pricing infos.
