@@ -12,14 +12,46 @@ module Fastlane
         ARGV.include?('-h') || ARGV.include?('--help')
       end
 
+      def running_init_command?
+        ARGV.include?("init")
+      end
+
       def take_off
         before_import_time = Time.now
 
-        require "fastlane" # this might take a long time if there is no Gemfile :(
+        if !ENV["FASTLANE_DISABLE_ANIMATION"]
+          # Usually in the fastlane code base we use
+          #
+          #   Helper.show_loading_indicator
+          #   longer_taking_task_here
+          #   Helper.hide_loading_indicator
+          #
+          # but in this case we haven't required FastlaneCore yet
+          # so we'll have to access the raw API for now
+          require "tty-spinner"
+          require_fastlane_spinner = TTY::Spinner.new("[:spinner] 🚀 ", format: :dots)
+          require_fastlane_spinner.auto_spin
 
+          # this might take a long time if there is no Gemfile :(
+          # That's why we show the loading indicator here also
+          require "fastlane"
+
+          require_fastlane_spinner.success
+        else
+          require "fastlane"
+        end
         # We want to avoid printing output other than the version number if we are running `fastlane -v`
-        if Time.now - before_import_time > 3 && !running_version_command?
-          print_slow_fastlane_warning
+        unless running_version_command? || running_init_command?
+          print_bundle_exec_warning(is_slow: (Time.now - before_import_time > 3))
+        end
+
+        unless (ENV['LANG'] || "").end_with?("UTF-8") || (ENV['LC_ALL'] || "").end_with?("UTF-8")
+          warn = "WARNING: fastlane requires your locale to be set to UTF-8. To learn more go to https://docs.fastlane.tools/getting-started/ios/setup/#set-up-environment-variables"
+          UI.error(warn)
+          at_exit do
+            # Repeat warning here so users hopefully see it
+            UI.error(warn)
+          end
         end
 
         FastlaneCore::UpdateChecker.start_looking_for_update('fastlane')
@@ -78,42 +110,41 @@ module Fastlane
         }[tool_name] || tool_name
       end
 
-      def print_slow_fastlane_warning
-        # `BUNDLE_BIN_PATH` is used when the user uses `bundle exec`
-        return if FastlaneCore::Env.truthy?('BUNDLE_BIN_PATH') || FastlaneCore::Env.truthy?('SKIP_SLOW_FASTLANE_WARNING') || FastlaneCore::Helper.contained_fastlane?
+      def print_bundle_exec_warning(is_slow: false)
+        return if FastlaneCore::Helper.bundler? # user is alread using bundler
+        return if FastlaneCore::Env.truthy?('SKIP_SLOW_FASTLANE_WARNING') # user disabled the warnings
+        return if FastlaneCore::Helper.contained_fastlane? # user uses the bundled fastlane
 
         gemfile_path = PluginManager.new.gemfile_path
         if gemfile_path
-          # The user has a Gemfile, but fastlane is still slow
+          # The user has a Gemfile, but forgot to use `bundle exec`
           # Let's tell the user how to use `bundle exec`
-          UI.important "Seems like launching fastlane takes a while"
-          UI.important "fastlane detected a Gemfile in this directory"
-          UI.important "however it seems like you don't use `bundle exec`"
-          UI.important "to launch fastlane faster, please use"
-          UI.message ""
+          # We show this warning no matter if the command is slow or not
+          UI.important("fastlane detected a Gemfile in the current directory")
+          UI.important("however it seems like you don't use `bundle exec`")
+          UI.important("to launch fastlane faster, please use")
+          UI.message("")
           UI.command "bundle exec fastlane #{ARGV.join(' ')}"
-          UI.message ""
-        else
+          UI.message("")
+        elsif is_slow
           # fastlane is slow and there is no Gemfile
           # Let's tell the user how to use `gem cleanup` and how to
           # start using a Gemfile
-          UI.important "Seems like launching fastlane takes a while - please run"
-          UI.message ""
+          UI.important("Seems like launching fastlane takes a while - please run")
+          UI.message("")
           UI.command "[sudo] gem cleanup"
-          UI.message ""
-          UI.important "to uninstall outdated gems and make fastlane launch faster"
-          UI.important "Alternatively it's recommended to start using a Gemfile to lock your dependencies"
-          UI.important "To get started with a Gemfile, run"
-          UI.message ""
+          UI.message("")
+          UI.important("to uninstall outdated gems and make fastlane launch faster")
+          UI.important("Alternatively it's recommended to start using a Gemfile to lock your dependencies")
+          UI.important("To get started with a Gemfile, run")
+          UI.message("")
           UI.command "bundle init"
           UI.command "echo 'gem \"fastlane\"' >> Gemfile"
           UI.command "bundle install"
-          UI.message ""
-          UI.important "After creating the Gemfile and Gemfile.lock, commit those files into version control"
+          UI.message("")
+          UI.important("After creating the Gemfile and Gemfile.lock, commit those files into version control")
         end
-        UI.important "For more information, check out https://guides.cocoapods.org/using/a-gemfile.html"
-
-        sleep 1
+        UI.important("Get started using a Gemfile for fastlane https://docs.fastlane.tools/getting-started/ios/setup/#use-a-gemfile")
       end
 
       # Returns an array of symbols for the available lanes for the Fastfile

@@ -1,6 +1,8 @@
+require_relative 'helper'
+
 module FastlaneCore
   class ToolCollector
-    # Learn more at https://github.com/fastlane/fastlane#metrics
+    # Learn more at https://docs.fastlane.tools/#metrics
 
     # This is the original error reporting mechanism, which has always represented
     # either controlled (UI.user_error!), or uncontrolled (UI.crash!, anything else)
@@ -68,7 +70,7 @@ module FastlaneCore
 
       # Never generate web requests during tests
       unless Helper.test?
-        fork do
+        Thread.new do
           begin
             Excon.post(url,
                        body: analytic_event_body,
@@ -115,13 +117,12 @@ module FastlaneCore
         analytics << event_for_completion(action, action_completion_status, action_version, timestamp_seconds)
         analytics << event_for_count(action, count, action_version, timestamp_seconds)
       end
-
       { analytics: analytics }.to_json
     end
 
     def show_message
       UI.message("Sending Crash/Success information")
-      UI.message("Learn more at https://github.com/fastlane/fastlane#metrics")
+      UI.message("Learn more at https://docs.fastlane.tools/#metrics")
       UI.message("No personal/sensitive data is sent. Only sharing the following:")
       UI.message(launches)
       UI.message(@error) if @error
@@ -217,7 +218,7 @@ module FastlaneCore
     def event_for_web_onboarding(fastfile_id, completion_status, timestamp_seconds)
       {
         event_source: {
-          oauth_app_name: 'fastlane-enhancer',
+          oauth_app_name: oauth_app_name,
           product: 'fastlane_web_onboarding'
         },
         actor: {
@@ -231,6 +232,10 @@ module FastlaneCore
           name: 'fastlane_completion_status',
           detail: completion_status
         },
+        secondary_target: {
+          name: 'executed',
+          detail: secondary_target_string('')
+        },
         millis_since_epoch: timestamp_seconds * 1000,
         version: 1
       }
@@ -239,7 +244,7 @@ module FastlaneCore
     def event_for_completion(action, completion_status, version, timestamp_seconds)
       {
         event_source: {
-          oauth_app_name: 'fastlane-enhancer',
+          oauth_app_name: oauth_app_name,
           product: 'fastlane'
         },
         actor: {
@@ -255,7 +260,7 @@ module FastlaneCore
         },
         secondary_target: {
           name: 'version',
-          detail: version
+          detail: secondary_target_string(version)
         },
         millis_since_epoch: timestamp_seconds * 1000,
         version: 1
@@ -265,7 +270,7 @@ module FastlaneCore
     def event_for_count(action, count, version, timestamp_seconds)
       {
         event_source: {
-          oauth_app_name: 'fastlane-enhancer',
+          oauth_app_name: oauth_app_name,
           product: 'fastlane'
         },
         actor: {
@@ -281,11 +286,19 @@ module FastlaneCore
         },
         secondary_target: {
           name: 'version',
-          detail: version
+          detail: secondary_target_string(version)
         },
         millis_since_epoch: timestamp_seconds * 1000,
         version: 1
       }
+    end
+
+    def oauth_app_name
+      return 'fastlane-enhancer'
+    end
+
+    def secondary_target_string(string)
+      return string
     end
   end
 end

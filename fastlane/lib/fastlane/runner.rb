@@ -35,7 +35,7 @@ module Fastlane
       Actions.lane_context[Actions::SharedValues::PLATFORM_NAME] = current_platform
       Actions.lane_context[Actions::SharedValues::LANE_NAME] = full_lane_name
 
-      UI.success "Driving the lane '#{full_lane_name}' 🚀"
+      UI.success("Driving the lane '#{full_lane_name}' 🚀")
 
       return_val = nil
 
@@ -57,7 +57,7 @@ module Fastlane
         return return_val
       rescue => ex
         Dir.chdir(path_to_use) do
-          # Provide error block exception without colour code
+          # Provide error block exception without color code
           begin
             error_blocks[current_platform].call(current_lane, ex, parameters) if current_platform && error_blocks[current_platform]
             error_blocks[nil].call(current_lane, ex, parameters) if error_blocks[nil]
@@ -186,18 +186,18 @@ module Fastlane
         original_full = full_lane_name
         original_lane = current_lane
 
-        UI.user_error!("Parameters for a lane must always be a hash") unless (parameters.first || {}).kind_of? Hash
+        UI.user_error!("Parameters for a lane must always be a hash") unless (parameters.first || {}).kind_of?(Hash)
 
         execute_flow_block(before_each_blocks, current_platform, new_lane, parameters)
 
         pretty = [new_lane]
         pretty = [current_platform, new_lane] if current_platform
         Actions.execute_action("Switch to #{pretty.join(' ')} lane") {} # log the action
-        UI.message "Cruising over to lane '#{pretty.join(' ')}' 🚖"
+        UI.message("Cruising over to lane '#{pretty.join(' ')}' 🚖")
 
         # Actually switch lane now
         self.current_lane = new_lane
-        collector.did_launch_action(:lane_switch)
+
         result = block.call(parameters.first || {}) # to always pass a hash
         self.current_lane = original_lane
 
@@ -205,24 +205,25 @@ module Fastlane
         # Call the platform specific after block and then the general one
         execute_flow_block(after_each_blocks, current_platform, new_lane, parameters)
 
-        UI.message "Cruising back to lane '#{original_full}' 🚘"
+        UI.message("Cruising back to lane '#{original_full}' 🚘")
         return result
       else
         raise LaneNotAvailableError.new, "Lane not found"
       end
     end
 
-    def execute_action(method_sym, class_ref, arguments, custom_dir: nil, from_action: false)
+    def execute_action(method_sym, class_ref, arguments, custom_dir: nil, from_action: false, configuration_language: nil)
       if custom_dir.nil?
         custom_dir ||= "." if Helper.test?
         custom_dir ||= ".."
       end
 
-      collector.did_launch_action(method_sym)
-
       verify_supported_os(method_sym, class_ref)
 
       begin
+        launch_context = FastlaneCore::ActionLaunchContext.context_for_action_name(method_sym.to_s, configuration_language: configuration_language, args: ARGV)
+        FastlaneCore.session.action_launched(launch_context: launch_context)
+
         Dir.chdir(custom_dir) do # go up from the fastlane folder, to the project folder
           # If another action is calling this action, we shouldn't show it in the summary
           # (see https://github.com/fastlane/fastlane/issues/4546)
@@ -232,7 +233,7 @@ module Fastlane
             # Since we usually just need the passed hash, we'll just use the first object if there is only one
             if arguments.count == 0
               arguments = ConfigurationHelper.parse(class_ref, {}) # no parameters => empty hash
-            elsif arguments.count == 1 and arguments.first.kind_of? Hash
+            elsif arguments.count == 1 and arguments.first.kind_of?(Hash)
               arguments = ConfigurationHelper.parse(class_ref, arguments.first) # Correct configuration passed
             elsif !class_ref.available_options
               # This action does not use the new action format
@@ -242,14 +243,18 @@ module Fastlane
             end
 
             if Fastlane::Actions.is_deprecated?(class_ref)
-              puts "==========================================".deprecated
-              puts "This action (#{method_sym}) is deprecated".deprecated
-              puts class_ref.deprecated_notes.to_s.deprecated if class_ref.deprecated_notes
-              puts "==========================================\n".deprecated
+              puts("==========================================".deprecated)
+              puts("This action (#{method_sym}) is deprecated".deprecated)
+              puts(class_ref.deprecated_notes.to_s.deprecated) if class_ref.deprecated_notes
+              puts("==========================================\n".deprecated)
             end
 
             class_ref.runner = self # needed to call another action form an action
-            class_ref.run(arguments)
+            return_value = class_ref.run(arguments)
+
+            action_completed(method_sym.to_s, status: FastlaneCore::ActionCompletionStatus::SUCCESS)
+
+            return return_value
           end
         end
       rescue Interrupt => e
@@ -258,14 +263,22 @@ module Fastlane
         raise e
       rescue FastlaneCore::Interface::FastlaneError => e # user_error!
         FastlaneCore::CrashReporter.report_crash(exception: e)
-        collector.did_raise_error(method_sym) if e.fastlane_should_report_metrics?
+        action_completed(method_sym.to_s, status: FastlaneCore::ActionCompletionStatus::USER_ERROR, exception: e)
         raise e
       rescue Exception => e # rubocop:disable Lint/RescueException
         # high chance this is actually FastlaneCore::Interface::FastlaneCrash, but can be anything else
         # Catches all exceptions, since some plugins might use system exits to get out
         FastlaneCore::CrashReporter.report_crash(exception: e)
-        collector.did_crash(method_sym) if e.fastlane_should_report_metrics?
+
+        action_completed(method_sym.to_s, status: FastlaneCore::ActionCompletionStatus::FAILED, exception: e)
         raise e
+      end
+    end
+
+    def action_completed(action_name, status: nil, exception: nil)
+      if exception.nil? || exception.fastlane_should_report_metrics?
+        action_completion_context = FastlaneCore::ActionCompletionContext.context_for_action_name(action_name, args: ARGV, status: status)
+        FastlaneCore.session.action_completed(completion_context: action_completion_context)
       end
     end
 
@@ -285,15 +298,6 @@ module Fastlane
           end
         end
       end
-    end
-
-    def collector
-      @collector ||= ActionCollector.new
-    end
-
-    # Fastfile was finished executing
-    def did_finish
-      collector.did_finish
     end
 
     # Called internally to setup the runner object
@@ -341,6 +345,10 @@ module Fastlane
 
     def lanes
       @lanes ||= {}
+    end
+
+    def did_finish
+      # to maintain compatibility with other sibling classes that have this API
     end
 
     def before_each_blocks

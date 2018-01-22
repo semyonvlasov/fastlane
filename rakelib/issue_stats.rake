@@ -17,7 +17,7 @@ def get_all(conn, url, params)
   loop do
     resp = conn.get do |req|
       req.headers['Authorization'] = "token #{GITHUB_TOKEN}"
-      req.url next_url, params
+      req.url(next_url, params)
     end
 
     items += JSON.parse(resp.body)
@@ -45,8 +45,8 @@ def colorized_row(row)
   colorized_row
 end
 
-desc "Display issue opening and closing statistics from GitHub"
-task :issue_stats do
+desc("Display issue opening and closing statistics from GitHub")
+task(:issue_stats) do
   require 'date'
   require 'json'
   require 'faraday'
@@ -58,7 +58,7 @@ task :issue_stats do
   conn = Faraday.new(url: BASE_URL)
 
   QUERY_START_TIME = (Time.now.utc - (QUERY_DAYS * SECONDS_PER_DAY)).freeze
-  puts "Fetching GitHub issues..."
+  puts("Fetching GitHub issues...")
 
   # Fetch only issues updated within the query time period to keep our GitHub request count reasonable
   since = QUERY_START_TIME.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -88,7 +88,9 @@ task :issue_stats do
   end
 
   # Sort by the last column, "Net" so that the projects with the most unclosed issues are at the top
+  # rubocop: disable Performance/CompareWithBlock
   sorted_issues = issue_counts_by_label.sort { |row_1, row_2| row_1[3] <=> row_2[3] }.reverse
+  # rubocop: enable Performance/CompareWithBlock
   pretty_issues = sorted_issues.map { |issue_row| colorized_row(issue_row) }
 
   totals = issue_counts_by_label.each_with_object(['total', 0, 0, 0]) do |row, total_row|
@@ -99,6 +101,6 @@ task :issue_stats do
                               headings: ['Labels', 'Opened', 'Closed', 'Net'],
                               rows: pretty_issues)
   table.add_separator
-  table.add_row colorized_row(totals)
-  puts table
+  table.add_row(colorized_row(totals))
+  puts(table)
 end

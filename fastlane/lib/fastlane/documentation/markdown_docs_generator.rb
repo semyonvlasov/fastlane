@@ -1,7 +1,5 @@
 module Fastlane
   class MarkdownDocsGenerator
-    ENHANCER_URL = "https://enhancer.fastlane.tools"
-
     attr_accessor :categories
 
     def initialize
@@ -34,44 +32,81 @@ module Fastlane
     end
 
     def number_of_launches_for_action(action_name)
-      found = all_actions_from_enhancer.find { |c| c["action"] == action_name.to_s }
+      found = all_actions_from_enhancer.find { |c| c['action'] == action_name.to_s }
 
-      return found["launches"] if found
-      return rand # so we don't overwrite another action, this is between 0 and 1
+      return found["index"] if found
+      return 10_000 + rand # new actions that we've never tracked before will be shown at the bottom of the page, need `rand` to not overwrite them
     end
 
     def all_actions_from_enhancer
-      require 'faraday'
       require 'json'
-
-      # Only Fabric team members have access to the enhancer instance
-      # This can be used to check doc changes for everyone else
-      if FastlaneCore::Env.truthy?('USE_ENHANCE_TEST_DATA')
-        return [{ "action" => "puts", "launches" => 123, "errors" => 0, "ratio" => 0.0, "crashes" => 0 },
-                { "action" => "fastlane_version", "launches" => 123, "errors" => 43, "ratio" => 0.34, "crashes" => 0 },
-                { "action" => "default_platform", "launches" => 123, "errors" => 33, "ratio" => 0.27, "crashes" => 31 }]
-      end
-
-      unless @launches
-        conn = Faraday.new(ENHANCER_URL)
-        conn.basic_auth(ENV["ENHANCER_USER"], ENV["ENHANCER_PASSWORD"])
-        begin
-          @launches = JSON.parse(conn.get('/index.json?minimum_launches=0').body)
-        rescue
-          UI.user_error!("Couldn't fetch usage data, make sure to have ENHANCER_USER and ENHANCER_PASSWORD")
-        end
-      end
-      @launches
+      @_launches ||= JSON.parse(File.read(File.join(Fastlane::ROOT, "assets/action_ranking.json"))) # root because we're in a temporary directory here
     end
 
-    def generate!(target_path: "docs/Actions.md")
+    def custom_action_docs_path
+      "lib/fastlane/actions/docs/"
+    end
+
+    def load_custom_action_md(action)
+      # check if there is a custom detail view in markdown available in the fastlane code base
+      custom_file_location = File.join(Fastlane::ROOT, custom_action_docs_path, "#{action.action_name}.md")
+      if File.exist?(custom_file_location)
+        UI.verbose("Using custom md file for action #{action.action_name}")
+        return File.read(custom_file_location)
+      end
+      return nil
+    end
+
+    def generate!(target_path: nil)
+      require 'yaml'
+      FileUtils.mkdir_p(target_path)
+      docs_dir = File.join(target_path, "docs")
+
+      # Generate actions.md
       template = File.join(Fastlane::ROOT, "lib/assets/Actions.md.erb")
+      result = ERB.new(File.read(template), 0, '-').result(binding) # https://web.archive.org/web/20160430190141/www.rrn.dk/rubys-erb-templating-system
+      File.write(File.join(docs_dir, "actions.md"), result)
 
-      result = ERB.new(File.read(template), 0, '-').result(binding) # http://www.rrn.dk/rubys-erb-templating-system
-      UI.verbose(result)
+      # Generate actions sub pages (e.g. actions/slather.md, actions/scan.md)
+      all_actions_ref_yml = []
+      FileUtils.mkdir_p(File.join(docs_dir, "actions"))
+      ActionsList.all_actions do |action|
+        # Make sure to always assign `@custom_content`, as we're in a loop and `@` is needed for the `erb`
+        @custom_content = load_custom_action_md(action)
 
-      File.write(target_path, result)
-      UI.success(target_path)
+        if action.superclass != Fastlane::Action
+          # This means, the current method is an alias
+          # meaning we're gonna look if the parent class
+          # as a custom md file.
+          # e.g. `deliver.rb` super class is `upload_to_app_store.rb`
+          @custom_content ||= load_custom_action_md(action.superclass)
+        end
+
+        template = File.join(Fastlane::ROOT, "lib/assets/ActionDetails.md.erb")
+        @action = action # to provide a reference in the .html.erb template
+        result = ERB.new(File.read(template), 0, '-').result(binding) # https://web.archive.org/web/20160430190141/www.rrn.dk/rubys-erb-templating-system
+
+        file_name = File.join("actions", "#{action.action_name}.md")
+        File.write(File.join(docs_dir, file_name), result)
+
+        all_actions_ref_yml << { action.action_name => file_name }
+      end
+
+      # Modify the mkdocs.yml to list all the actions
+      mkdocs_yml_path = File.join(target_path, "mkdocs.yml")
+      raise "Could not find mkdocs.yml in #{target_path}, make sure to point to the fastlane/docs repo" unless File.exist?(mkdocs_yml_path)
+      mkdocs_yml = YAML.load_file(mkdocs_yml_path)
+      hidden_actions_array = mkdocs_yml["pages"].find { |p| !p["_Actions"].nil? }
+      hidden_actions_array["_Actions"] = all_actions_ref_yml
+      File.write(mkdocs_yml_path, mkdocs_yml.to_yaml)
+
+      # Copy over the assets from the `actions/docs/assets` directory
+      Dir[File.join(custom_action_docs_path, "assets", "*")].each do |current_asset_path|
+        UI.message("Copying asset #{current_asset_path}")
+        FileUtils.cp(current_asset_path, File.join(docs_dir, "img", "actions", File.basename(current_asset_path)))
+      end
+
+      UI.success("Generated new docs on path #{target_path}")
     end
 
     private

@@ -1,3 +1,6 @@
+require_relative 'person'
+require_relative 'invite'
+
 module Spaceship
   module Portal
     class Persons < PortalBase
@@ -14,6 +17,21 @@ module Spaceship
           all_members << agent
 
           return all_members
+        end
+
+        def invited
+          return factory_invite(client.team_invited["invites"])
+        end
+
+        def factory_invite(invitees)
+          if invitees.kind_of?(Hash)
+            return Spaceship::Portal::Invite.factory(invitees)
+          end
+          final_invitees = []
+          invitees.each do |invitee|
+            final_invitees << Spaceship::Portal::Invite.factory(invitee)
+          end
+          return final_invitees
         end
 
         def factory_member(members, type)

@@ -1,3 +1,9 @@
+require_relative '../../helper'
+require_relative '../../globals'
+require_relative '../../env'
+
+require_relative '../interface'
+
 module FastlaneCore
   # Shell is the terminal output of things
   # For documentation for each of the methods open `interface.rb`
@@ -10,7 +16,7 @@ module FastlaneCore
       $stdout.sync = true
 
       if Helper.is_test? && !ENV.key?('DEBUG')
-        $stdout.puts "Logging disabled while running tests. Force them by setting the DEBUG environment variable"
+        $stdout.puts("Logging disabled while running tests. Force them by setting the DEBUG environment variable")
         @log ||= Logger.new(nil) # don't show any logs when running tests
       else
         @log ||= Logger.new($stdout)
@@ -60,7 +66,7 @@ module FastlaneCore
     end
 
     def command(message)
-      log.info("$ #{message}".cyan.underline)
+      log.info("$ #{message}".cyan)
     end
 
     def command_output(message)

@@ -1,9 +1,3 @@
-if ENV["SPACESHIP_DEBUG"]
-  require 'openssl'
-  # this has to be on top of this file, since the value can't be changed later
-  OpenSSL::SSL::VERIFY_PEER = OpenSSL::SSL::VERIFY_NONE
-end
-
 module Fastlane
   module Actions
     module SharedValues
@@ -21,20 +15,11 @@ module Fastlane
           url: base_url
         }
         Faraday.new(foptions) do |builder|
-          builder.request :multipart
-          builder.request :url_encoded
-          builder.response :json, content_type: /\bjson$/
-          builder.use FaradayMiddleware::FollowRedirects
-          builder.adapter :net_http
-          if ENV['SPACESHIP_DEBUG']
-            # for debugging only
-            # This enables tracking of networking requests using Charles Web Proxy
-            builder.proxy "https://127.0.0.1:8888"
-          end
-
-          if ENV["DEBUG"]
-            puts "To run _spaceship_ through a local proxy, use SPACESHIP_DEBUG"
-          end
+          builder.request(:multipart)
+          builder.request(:url_encoded)
+          builder.response(:json, content_type: /\bjson$/)
+          builder.use(FaradayMiddleware::FollowRedirects)
+          builder.adapter(:net_http)
         end
       end
 
@@ -61,6 +46,7 @@ module Fastlane
         end
 
         connection.post do |req|
+          req.options.timeout = options.delete(:timeout)
           if options[:public_identifier].nil?
             req.url("/api/2/apps/upload")
           else
@@ -94,6 +80,12 @@ module Fastlane
           dsym_io = Faraday::UploadIO.new(dsym, 'application/octet-stream') if dsym and File.exist?(dsym)
         end
 
+        # https://support.hockeyapp.net/discussions/problems/83559
+        # Should not set status to "2" (downloadable) until after the app is uploaded, so allow the caller
+        # to specify a different status for the `create` step
+        update_status = options[:status]
+        options[:status] = options[:create_status]
+
         response = connection.get do |req|
           req.url("/api/2/apps/#{app_id}/app_versions/new")
           req.headers['X-HockeyAppToken'] = api_token
@@ -114,7 +106,10 @@ module Fastlane
           options[:dsym] = dsym_io
         end
 
+        options[:status] = update_status
+
         connection.put do |req|
+          req.options.timeout = options.delete(:timeout)
           req.url("/api/2/apps/#{app_id}/app_versions/#{app_version_id}")
           req.headers['X-HockeyAppToken'] = api_token
           req.body = options
@@ -132,7 +127,7 @@ module Fastlane
         else
 
           if build_file.nil?
-            UI.user_error!("You have to provide a build file")
+            UI.user_error!("You have to provide a build file (params 'apk' or 'ipa')")
           end
 
           if options[:ipa].to_s.end_with?(".ipa")
@@ -171,11 +166,11 @@ module Fastlane
         case response.status
         when 200...300
           url = response.body['public_url']
-          app_url = self.download_url(response.body)
+
+          Actions.lane_context[SharedValues::HOCKEY_DOWNLOAD_LINK] = url
           Actions.lane_context[SharedValues::HOCKEY_BUILD_INFORMATION] = response.body
-          Actions.lane_context[SharedValues::HOCKEY_DOWNLOAD_LINK] = app_url
+
           UI.message("Public Download URL: #{url}") if url
-          UI.message("New Version Download URL: #{app_url}") if app_url
           UI.success('Build successfully uploaded to HockeyApp!')
         else
           if response.body.to_s.include?("App could not be created")
@@ -184,13 +179,6 @@ module Fastlane
             UI.user_error!("Error when trying to upload file(s) to HockeyApp: #{response.status} - #{response.body}")
           end
         end
-      end
-
-      def self.download_url(body)
-        version_url = body['public_url']
-        version_url = body['public_url'] + '/app_versions/' + body['config_url'].split('/').last if body['config_url']
-        version_url = body['public_url'] + '/app_versions/' + response.body['version'] if body['version']
-        version_url
       end
 
       def self.description
@@ -259,6 +247,10 @@ module Fastlane
                                        env_name: "FL_HOCKEY_STATUS",
                                        description: "Download status: \"1\" = No user can download; \"2\" = Available for download (only possible with full-access token)",
                                        default_value: "2"),
+          FastlaneCore::ConfigItem.new(key: :create_status,
+                                       env_name: "FL_HOCKEY_CREATE_STATUS",
+                                       description: "Download status for initial version creation when create_update is true: \"1\" = No user can download; \"2\" = Available for download (only possible with full-access token)",
+                                       default_value: "2"),
           FastlaneCore::ConfigItem.new(key: :notes_type,
                                       env_name: "FL_HOCKEY_NOTES_TYPE",
                                       description: "Notes type for your :notes, \"0\" = Textile, \"1\" = Markdown (default)",
@@ -323,6 +315,11 @@ module Fastlane
                                        verify_block: proc do |value|
                                          UI.user_error!("Invalid value '#{value}' for key 'strategy'. Allowed values are 'add', 'replace'.") unless ['add', 'replace'].include?(value)
                                        end),
+          FastlaneCore::ConfigItem.new(key: :timeout,
+                                      env_name: "FL_HOCKEY_TIMEOUT",
+                                      description: "Request timeout in seconds",
+                                      is_string: false,
+                                      optional: true),
           FastlaneCore::ConfigItem.new(key: :bypass_cdn,
                                       env_name: "FL_HOCKEY_BYPASS_CDN",
                                       description: "Flag to bypass Hockey CDN when it uploads successfully but reports error",

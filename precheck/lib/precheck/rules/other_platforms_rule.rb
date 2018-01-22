@@ -1,5 +1,4 @@
-require 'precheck/rule'
-require 'precheck/rules/abstract_text_match_rule'
+require_relative 'abstract_text_match_rule'
 
 module Precheck
   class OtherPlatformsRule < AbstractTextMatchRule
@@ -29,7 +28,6 @@ module Precheck
         "google",
         "compuserve",
         "windows phone",
-        "tizen",
         "windows 10 mobile",
         "sailfish os",
         "windows universal app",

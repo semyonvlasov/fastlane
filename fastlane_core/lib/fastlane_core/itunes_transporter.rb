@@ -3,6 +3,9 @@ require 'shellwords'
 require 'fileutils'
 require 'credentials_manager/account_manager'
 
+require_relative 'features'
+require_relative 'helper'
+
 module FastlaneCore
   # The TransporterInputError occurs when you passed wrong inputs to the {Deliver::ItunesTransporter}
   class TransporterInputError < StandardError
@@ -32,6 +35,7 @@ module FastlaneCore
 
       @errors = []
       @warnings = []
+      @all_lines = []
 
       if hide_output
         # Show a one time message instead
@@ -43,6 +47,7 @@ module FastlaneCore
         PTY.spawn(command) do |stdin, stdout, pid|
           begin
             stdin.each do |line|
+              @all_lines << line
               parse_line(line, hide_output) # this is where the parsing happens
             end
           rescue Errno::EIO
@@ -69,7 +74,12 @@ module FastlaneCore
         raise TransporterRequiresApplicationSpecificPasswordError
       end
 
-      if @errors.count > 0
+      if @errors.count > 0 && @all_lines.count > 0
+        # Print out the last 15 lines, this is key for non-verbose mode
+        @all_lines.last(15).each do |line|
+          UI.important("[iTMSTransporter] #{line}")
+        end
+        UI.message("iTunes Transporter output above ^")
         UI.error(@errors.join("\n"))
       end
 
@@ -93,21 +103,21 @@ module FastlaneCore
 
       re = Regexp.union(SKIP_ERRORS)
       if line.match(re)
-        # Those lines will not be handle like errors or warnings
+        # Those lines will not be handled like errors or warnings
 
       elsif line =~ ERROR_REGEX
         @errors << $1
         UI.error("[Transporter Error Output]: #{$1}")
 
         # Check if it's a login error
-        if $1.include? "Your Apple ID or password was entered incorrectly" or
-           $1.include? "This Apple ID has been locked for security reasons"
+        if $1.include?("Your Apple ID or password was entered incorrectly") or
+           $1.include?("This Apple ID has been locked for security reasons")
 
           unless Helper.is_test?
             CredentialsManager::AccountManager.new(user: @user).invalid_credentials
             UI.error("Please run this tool again to apply the new password")
           end
-        elsif $1.include? "Redundant Binary Upload. There already exists a binary upload with build"
+        elsif $1.include?("Redundant Binary Upload. There already exists a binary upload with build")
           UI.error($1)
           UI.error("You have to change the build number of your app to upload your ipa file")
         end
@@ -169,7 +179,7 @@ module FastlaneCore
 
     def handle_error(password)
       # rubocop:disable Style/CaseEquality
-      unless /^[0-9a-zA-Z\.\$\_]*$/ === password
+      unless password === /^[0-9a-zA-Z\.\$\_]*$/
         UI.error([
           "Password contains special characters, which may not be handled properly by iTMSTransporter.",
           "If you experience problems uploading to iTunes Connect, please consider changing your password to something with only alphanumeric characters."
@@ -210,8 +220,7 @@ module FastlaneCore
         '-Xms1024m',
         '-Djava.awt.headless=true',
         '-Dsun.net.http.retryPost=false',
-        "-classpath #{Helper.transporter_java_jar_path.shellescape}",
-        'com.apple.transporter.Application',
+        java_code_option,
         '-m upload',
         "-u #{username.shellescape}",
         "-p #{password.shellescape}",
@@ -234,8 +243,7 @@ module FastlaneCore
         '-Xms1024m',
         '-Djava.awt.headless=true',
         '-Dsun.net.http.retryPost=false',
-        "-classpath #{Helper.transporter_java_jar_path.shellescape}",
-        'com.apple.transporter.Application',
+        java_code_option,
         '-m lookupMetadata',
         "-u #{username.shellescape}",
         "-p #{password.shellescape}",
@@ -244,6 +252,14 @@ module FastlaneCore
         ("-itc_provider #{provider_short_name}" unless provider_short_name.to_s.empty?),
         '2>&1' # cause stderr to be written to stdout
       ].compact.join(' ')
+    end
+
+    def java_code_option
+      if Helper.is_mac? && Helper.xcode_at_least?(9)
+        return "-jar #{Helper.transporter_java_jar_path.shellescape}"
+      else
+        return "-classpath #{Helper.transporter_java_jar_path.shellescape} com.apple.transporter.Application"
+      end
     end
 
     def handle_error(password)
@@ -291,7 +307,7 @@ module FastlaneCore
     def initialize(user = nil, password = nil, use_shell_script = false, provider_short_name = nil)
       # Xcode 6.x doesn't have the same iTMSTransporter Java setup as later Xcode versions, so
       # we can't default to using the better direct Java invocation strategy for those versions.
-      use_shell_script ||= Helper.is_mac? && Helper.xcode_version.start_with?('6.')
+      use_shell_script ||= Helper.xcode_version.start_with?('6.')
       use_shell_script ||= Feature.enabled?('FASTLANE_ITUNES_TRANSPORTER_USE_SHELL_SCRIPT')
 
       @user = user

@@ -1,5 +1,9 @@
 require 'spaceship'
 
+require 'fastlane_core/print_table'
+require 'fastlane_core/cert_checker'
+require_relative 'module'
+
 module Sigh
   class Runner
     attr_accessor :spaceship
@@ -11,26 +15,27 @@ module Sigh
                                          hide_keys: [:output_path],
                                              title: "Summary for sigh #{Fastlane::VERSION}")
 
-      UI.message "Starting login with user '#{Sigh.config[:username]}'"
+      UI.message("Starting login with user '#{Sigh.config[:username]}'")
       Spaceship.login(Sigh.config[:username], nil)
       Spaceship.select_team
-      UI.message "Successfully logged in"
+      UI.message("Successfully logged in")
 
       profiles = [] if Sigh.config[:skip_fetch_profiles]
       profiles ||= fetch_profiles # download the profile if it's there
 
       if profiles.count > 0
-        UI.success "Found #{profiles.count} matching profile(s)"
+        UI.success("Found #{profiles.count} matching profile(s)")
         profile = profiles.first
 
         if Sigh.config[:force]
           # Recreating the profile ensures it has all of the requested properties (cert, name, etc.)
-          UI.important "Recreating the profile"
+          UI.important("Recreating the profile")
           profile.delete!
           profile = create_profile!
         end
       else
-        UI.important "No existing profiles found, that match the certificates you have installed locally! Creating a new provisioning profile for you"
+        UI.user_error!("No matching provisioning profile found and can not create a new one because you enabled `readonly`") if Sigh.config[:readonly]
+        UI.important("No existing profiles found, that match the certificates you have installed locally! Creating a new provisioning profile for you")
         ensure_app_exists!
         profile = create_profile!
       end
@@ -60,8 +65,10 @@ module Sigh
 
     # Fetches a profile matching the user's search requirements
     def fetch_profiles
-      UI.message "Fetching profiles..."
-      results = profile_type.find_by_bundle_id(Sigh.config[:app_identifier], mac: Sigh.config[:platform].to_s == 'macos')
+      UI.message("Fetching profiles...")
+      results = profile_type.find_by_bundle_id(bundle_id: Sigh.config[:app_identifier],
+                                                     mac: Sigh.config[:platform].to_s == 'macos',
+                                            sub_platform: Sigh.config[:platform].to_s == 'tvos' ? 'tvOS' : nil)
       results = results.find_all do |current_profile|
         if current_profile.valid? || Sigh.config[:force]
           true
@@ -72,32 +79,17 @@ module Sigh
       end
 
       # Take the provisioning profile name into account
-      if Sigh.config[:provisioning_name].to_s.length > 0
-        filtered = results.select { |p| p.name.strip == Sigh.config[:provisioning_name].strip }
-        if Sigh.config[:ignore_profiles_with_different_name]
-          results = filtered
-        elsif (filtered || []).count > 0
-          results = filtered
-        end
-      end
+      results = filter_profiles_by_name(results) if Sigh.config[:provisioning_name].to_s.length > 0
 
       # Since September 20, 2016 spaceship doesn't distinguish between AdHoc and AppStore profiles
       # any more, since it requires an additional request
       # Instead we only call is_adhoc? on the matching profiles to speed up spaceship
 
-      results = results.find_all do |current_profile|
-        if profile_type == Spaceship.provisioning_profile.ad_hoc
-          current_profile.is_adhoc?
-        elsif profile_type == Spaceship.provisioning_profile.app_store
-          !current_profile.is_adhoc?
-        else
-          true
-        end
-      end
+      results = filter_profiles_for_adhoc_or_app_store(results)
 
       return results if Sigh.config[:skip_certificate_verification]
 
-      UI.message "Verifying certificates..."
+      UI.message("Verifying certificates...")
       return results.find_all do |current_profile|
         installed = false
 
@@ -140,18 +132,41 @@ module Sigh
 
       unless Sigh.config[:skip_fetch_profiles]
         if Spaceship.provisioning_profile.all.find { |p| p.name == name }
-          UI.error "The name '#{name}' is already taken, using another one."
+          UI.error("The name '#{name}' is already taken, using another one.")
           name += " #{Time.now.to_i}"
         end
       end
 
-      UI.important "Creating new provisioning profile for '#{Sigh.config[:app_identifier]}' with name '#{name}' for '#{Sigh.config[:platform]}' platform"
+      UI.important("Creating new provisioning profile for '#{Sigh.config[:app_identifier]}' with name '#{name}' for '#{Sigh.config[:platform]}' platform")
       profile = profile_type.create!(name: name,
                                 bundle_id: bundle_id,
                               certificate: cert,
                                       mac: Sigh.config[:platform].to_s == 'macos',
-                             sub_platform: Sigh.config[:platform].to_s == 'tvos' ? 'tvOS' : nil)
+                             sub_platform: Sigh.config[:platform].to_s == 'tvos' ? 'tvOS' : nil,
+                            template_name: Sigh.config[:template_name])
       profile
+    end
+
+    def filter_profiles_by_name(profiles)
+      filtered = profiles.select { |p| p.name.strip == Sigh.config[:provisioning_name].strip }
+      if Sigh.config[:ignore_profiles_with_different_name]
+        profiles = filtered
+      elsif (filtered || []).count > 0
+        profiles = filtered
+      end
+      profiles
+    end
+
+    def filter_profiles_for_adhoc_or_app_store(profiles)
+      profiles.find_all do |current_profile|
+        if profile_type == Spaceship.provisioning_profile.ad_hoc
+          current_profile.is_adhoc?
+        elsif profile_type == Spaceship.provisioning_profile.app_store
+          !current_profile.is_adhoc?
+        else
+          true
+        end
+      end
     end
 
     def certificates_for_profile_and_platform
@@ -208,11 +223,11 @@ module Sigh
       end
 
       if certificates.count > 1 and !Sigh.config[:development]
-        UI.important "Found more than one code signing identity. Choosing the first one. Check out `fastlane sigh --help` to see all available options."
-        UI.important "Available Code Signing Identities for current filters:"
+        UI.important("Found more than one code signing identity. Choosing the first one. Check out `fastlane sigh --help` to see all available options.")
+        UI.important("Available Code Signing Identities for current filters:")
         certificates.each do |c|
           str = ["\t- Name:", c.owner_name, "- ID:", c.id + " - Expires", c.expires.strftime("%d/%m/%Y")].join(" ")
-          UI.message str.green
+          UI.message(str.green)
         end
       end
 
@@ -220,7 +235,7 @@ module Sigh
         filters = ""
         filters << "Owner Name: '#{Sigh.config[:cert_owner_name]}' " if Sigh.config[:cert_owner_name]
         filters << "Certificate ID: '#{Sigh.config[:cert_id]}' " if Sigh.config[:cert_id]
-        UI.important "No certificates for filter: #{filters}" if filters.length > 0
+        UI.important("No certificates for filter: #{filters}") if filters.length > 0
         message = "Could not find a matching code signing identity for type '#{profile_type.to_s.split(':').last}'. "
         message += "It is recommended to use match to manage code signing for you, more information on https://codesigning.guide."
         message += "If you don't want to do so, you can also use cert to generate a new one: https://fastlane.tools/cert"
@@ -233,7 +248,7 @@ module Sigh
 
     # Downloads and stores the provisioning profile
     def download_profile(profile)
-      UI.important "Downloading provisioning profile..."
+      UI.important("Downloading provisioning profile...")
       profile_name ||= "#{profile_type.pretty_type}_#{Sigh.config[:app_identifier]}"
 
       if Sigh.config[:platform].to_s == 'tvos'
@@ -248,7 +263,7 @@ module Sigh
         f.write(profile.download)
       end
 
-      UI.success "Successfully downloaded provisioning profile..."
+      UI.success("Successfully downloaded provisioning profile...")
       return output_path
     end
 
@@ -260,17 +275,17 @@ module Sigh
     end
 
     def print_produce_command(config)
-      UI.message ""
-      UI.message "==========================================".yellow
-      UI.message "Could not find App ID with bundle identifier '#{config[:app_identifier]}'"
-      UI.message "You can easily generate a new App ID on the Developer Portal using 'produce':"
-      UI.message ""
-      UI.message "fastlane produce -u #{config[:username]} -a #{config[:app_identifier]} --skip_itc".yellow
-      UI.message ""
-      UI.message "You will be asked for any missing information, like the full name of your app"
-      UI.message "If the app should also be created on iTunes Connect, remove the " + "--skip_itc".yellow + " from the command above"
-      UI.message "==========================================".yellow
-      UI.message ""
+      UI.message("")
+      UI.message("==========================================".yellow)
+      UI.message("Could not find App ID with bundle identifier '#{config[:app_identifier]}'")
+      UI.message("You can easily generate a new App ID on the Developer Portal using 'produce':")
+      UI.message("")
+      UI.message("fastlane produce -u #{config[:username]} -a #{config[:app_identifier]} --skip_itc".yellow)
+      UI.message("")
+      UI.message("You will be asked for any missing information, like the full name of your app")
+      UI.message("If the app should also be created on iTunes Connect, remove the " + "--skip_itc".yellow + " from the command above")
+      UI.message("==========================================".yellow)
+      UI.message("")
     end
   end
 end

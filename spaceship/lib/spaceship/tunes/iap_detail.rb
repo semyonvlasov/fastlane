@@ -1,3 +1,8 @@
+require_relative '../du/upload_file'
+require_relative 'iap_status'
+require_relative 'iap_type'
+require_relative 'tunes_base'
+
 module Spaceship
   module Tunes
     class IAPDetail < TunesBase
@@ -45,12 +50,6 @@ module Spaceship
         'freeTrialDurationType.value' => :subscription_free_trial,
         'clearedForSale.value' => :cleared_for_sale
       })
-
-      class << self
-        def factory(attrs)
-          return self.new(attrs)
-        end
-      end
 
       def initialize(attrs)
         super(attrs)
@@ -101,7 +100,7 @@ module Spaceship
           new_versions << new_version
         end
 
-        version = { reviewNotes: { value: @review_notes }, contentHosting: raw_data['versions'].first['contentHosting'], "details" => { "value" => new_versions }, "id" => raw_data["versions"].first["id"] }.with_indifferent_access
+        version = { reviewNotes: { value: @review_notes }, "contentHosting" => raw_data['versions'].first['contentHosting'], "details" => { "value" => new_versions }, "id" => raw_data["versions"].first["id"], "reviewScreenshot" => { "value" => review_screenshot } }.with_indifferent_access
         if old_review_screenshot
           # save the review screenshot
           version[:reviewScreenshot] = old_review_screenshot
@@ -162,6 +161,12 @@ module Spaceship
         Tunes::IAPStatus.get_from_string(raw_data["versions"].first["status"])
       end
 
+      # @return (Hash) Hash containing existing review screenshot data
+      def review_screenshot
+        return nil unless raw_data && raw_data["versions"] && raw_data["versions"].first && raw_data["versions"].first["reviewScreenshot"] && raw_data['versions'].first["reviewScreenshot"]["value"]
+        raw_data['versions'].first['reviewScreenshot']['value']
+      end
+
       # Saves the current In-App-Purchase
       def save!
         # Transform localization versions back to original format.
@@ -186,7 +191,7 @@ module Spaceship
           review_notes = raw_data['versions'][0]['reviewNotes']
         end
 
-        raw_data.set(["versions"], [{ reviewNotes: review_notes, contentHosting: raw_data['versions'].first[:contentHosting], "details" => { "value" => versions_array }, id: raw_data["versions"].first["id"] }])
+        raw_data.set(["versions"], [{ reviewNotes: review_notes, contentHosting: raw_data['versions'].first['contentHosting'], "details" => { "value" => versions_array }, id: raw_data["versions"].first["id"], reviewScreenshot: { "value" => review_screenshot } }])
 
         # transform pricingDetails
         intervals_array = []
@@ -231,22 +236,9 @@ module Spaceship
 
         elsif @review_screenshot
           # Upload Screenshot
-          upload_file = UploadFile.from_path @review_screenshot
+          upload_file = UploadFile.from_path(@review_screenshot)
           screenshot_data = client.upload_purchase_review_screenshot(application.apple_id, upload_file)
-          new_screenshot = {
-            "value" => {
-              "assetToken" => screenshot_data["token"],
-              "sortOrder" => 0,
-              "type" => "SortedScreenShot",
-              "originalFileName" => upload_file.file_name,
-              "size" => screenshot_data["length"],
-              "height" => screenshot_data["height"],
-              "width" => screenshot_data["width"],
-              "checksum" => screenshot_data["md5"]
-            }
-          }
-
-          raw_data["versions"][0]["reviewScreenshot"] = new_screenshot
+          raw_data["versions"][0]["reviewScreenshot"] = screenshot_data
         end
         # Update the Purchase
         client.update_iap!(app_id: application.apple_id, purchase_id: self.purchase_id, data: raw_data)

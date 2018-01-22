@@ -1,3 +1,4 @@
+require_relative 'iap_family_details'
 
 module Spaceship
   module Tunes
@@ -16,17 +17,11 @@ module Spaceship
         'name.value' => :name
       })
 
-      class << self
-        def factory(attrs)
-          return self.new(attrs)
-        end
-      end
-
       # return a editable family object
       def edit
         attrs = client.load_iap_family(app_id: application.apple_id, family_id: self.family_id)
         attrs[:application] = application
-        Tunes::IAPFamilyDetails.factory(attrs)
+        Tunes::IAPFamilyDetails.new(attrs)
       end
     end
   end

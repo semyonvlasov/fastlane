@@ -1,3 +1,7 @@
+# This module is only used to check the environment is currently a testing env
+module SpecHelper
+end
+
 require "coveralls"
 Coveralls.wear! unless ENV["FASTLANE_SKIP_UPDATE_CHECK"]
 
@@ -8,22 +12,21 @@ require "fastlane"
 UI = FastlaneCore::UI
 
 unless ENV["DEBUG"]
-  $stdout.puts "Changing stdout to /tmp/fastlane_tests, set `DEBUG` environment variable to print to stdout (e.g. when using `pry`)"
-  $stdout = File.open("/tmp/fastlane_tests", "w")
+  fastlane_tests_tmpdir = "#{Dir.tmpdir}/fastlane_tests"
+  $stdout.puts("Changing stdout to #{fastlane_tests_tmpdir}, set `DEBUG` environment variable to print to stdout (e.g. when using `pry`)")
+  $stdout = File.open(fastlane_tests_tmpdir, "w")
 end
 
-xcode_path = FastlaneCore::Helper.xcode_path
-unless xcode_path.include?("Contents/Developer")
-  UI.error("Seems like you didn't set the developer tools path correctly")
-  UI.error("Detected path '#{xcode_path}'") if xcode_path.to_s.length > 0
-  UI.error("Please run the following on your machine")
-  UI.command("sudo xcode-select -s /Applications/Xcode.app")
-  UI.error("Adapt the path if you have Xcode installed/named somewhere else")
-  exit(1)
-end
-
-# This module is only used to check the environment is currently a testing env
-module SpecHelper
+if FastlaneCore::Helper.is_mac?
+  xcode_path = FastlaneCore::Helper.xcode_path
+  unless xcode_path.include?("Contents/Developer")
+    UI.error("Seems like you didn't set the developer tools path correctly")
+    UI.error("Detected path '#{xcode_path}'") if xcode_path.to_s.length > 0
+    UI.error("Please run the following on your machine")
+    UI.command("sudo xcode-select -s /Applications/Xcode.app")
+    UI.error("Adapt the path if you have Xcode installed/named somewhere else")
+    exit(1)
+  end
 end
 
 (Fastlane::TOOLS + [:spaceship, :fastlane_core]).each do |tool|
@@ -38,6 +41,8 @@ RSpec.configure do |config|
     # We don't want to call the RubyGems API at any point
     # This was a request that was added with Ruby 2.4.0
     allow(Fastlane::FastlaneRequire).to receive(:install_gem_if_needed).and_return(nil)
+
+    ENV['FASTLANE_PLATFORM_NAME'] = nil
 
     tool_name = current_test.id.match(%r{\.\/(\w+)\/})[1]
     method_name = "before_each_#{tool_name}".to_sym
@@ -59,6 +64,39 @@ RSpec.configure do |config|
   end
 
   config.example_status_persistence_file_path = "/tmp/rspec_failed_tests.txt"
+
+  # skip some tests if not running on mac
+  unless FastlaneCore::Helper.is_mac?
+
+    # define metadata tags that also imply :skip
+    config.define_derived_metadata(:requires_xcode) do |meta|
+      meta[:skip] = "Skipped: Requires Xcode to be installed (which is not possible on this platform and no workaround has been implemented)"
+    end
+    config.define_derived_metadata(:requires_xcodebuild) do |meta|
+      meta[:skip] = "Skipped: Requires `xcodebuild` to be installed (which is not possible on this platform and no workaround has been implemented)"
+    end
+    config.define_derived_metadata(:requires_plistbuddy) do |meta|
+      meta[:skip] = "Skipped: Requires `plistbuddy` to be installed (which is not possible on this platform and no workaround has been implemented)"
+    end
+    config.define_derived_metadata(:requires_keychain) do |meta|
+      meta[:skip] = "Skipped: Requires `keychain` to be installed (which is not possible on this platform and no workaround has been implemented)"
+    end
+    config.define_derived_metadata(:requires_security) do |meta|
+      meta[:skip] = "Skipped: Requires `security` to be installed (which is not possible on this platform and no workaround has been implemented)"
+    end
+
+    # also skip `before()` for test groups that are skipped because of their tags
+    # only works for `describe` groups (that are parents of the `before`, not if the tag is set on `it`
+    # caution! has unexpected side effect on usage of `skip: false` for individual examples
+    # see https://groups.google.com/d/msg/rspec/5qeKQr_7G7k/Pb3ss2hOAAAJ
+    module HookOverrides
+      def before(*args)
+        super unless metadata[:skip]
+      end
+    end
+    config.extend(HookOverrides)
+
+  end
 end
 
 module FastlaneSpec

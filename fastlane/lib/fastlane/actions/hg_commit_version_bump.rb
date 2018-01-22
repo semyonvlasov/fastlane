@@ -50,7 +50,6 @@ module Fastlane
           pbxproj_path = pbxproj_pathname.relative_path_from(repo_pathname).to_s
 
           # find the info_plist files
-          # rubocop:disable Style/MultilineBlockChain
           project = Xcodeproj::Project.open(xcodeproj_path)
           info_plist_files = project.objects.select do |object|
             object.isa == 'XCBuildConfiguration'
@@ -63,7 +62,6 @@ module Fastlane
           end.uniq.map do |info_plist_path|
             Pathname.new(File.expand_path(File.join(xcodeproj_path, '..', info_plist_path))).relative_path_from(repo_pathname).to_s
           end
-          # rubocop:enable Style/MultilineBlockChain
 
           # create our list of files that we expect to have changed, they should all be relative to the project root, which should be equal to the hg workdir root
           expected_changed_files = []
@@ -81,7 +79,7 @@ module Fastlane
         # check if the files changed are the ones we expected to change (these should be only the files that have version info in them)
         dirty_set = Set.new(hg_dirty_files.map(&:downcase))
         expected_set = Set.new(expected_changed_files.map(&:downcase))
-        changed_files_as_expected = dirty_set.subset? expected_set
+        changed_files_as_expected = dirty_set.subset?(expected_set)
         unless changed_files_as_expected
           unless params[:force]
             str = ["Found unexpected uncommitted changes in the working directory. Expected these files to have changed:",
@@ -122,7 +120,7 @@ module Fastlane
                                        description: "The path to your project file (Not the workspace). If you have only one, this is optional",
                                        optional: true,
                                        verify_block: proc do |value|
-                                         UI.user_error!("Please pass the path to the project, not the workspace") if value.end_with? ".xcworkspace"
+                                         UI.user_error!("Please pass the path to the project, not the workspace") if value.end_with?(".xcworkspace")
                                          UI.user_error!("Could not find Xcode project") unless File.exist?(value)
                                        end),
           FastlaneCore::ConfigItem.new(key: :force,
@@ -138,7 +136,7 @@ module Fastlane
                                        default_value: "file1, file2"),
           FastlaneCore::ConfigItem.new(key: :test_expected_files,
                                        env_name: "FL_HG_COMMIT_TEST_EXP_FILES",
-                                       description: "A list of expected changed files passed in for testin",
+                                       description: "A list of expected changed files passed in for testing",
                                        optional: true,
                                        default_value: "file1, file2")
         ]
@@ -160,7 +158,7 @@ module Fastlane
           "- All .plist files",
           "- The `.xcodeproj/project.pbxproj` file",
           "Then commits those files to the repo.",
-          "Customise the message with the `:message` option, defaults to 'Version Bump'",
+          "Customize the message with the `:message` option, defaults to 'Version Bump'",
           "If you have other uncommitted changes in your repo, this action will fail. If you started off in a clean repo, and used the _ipa_ and or _sigh_ actions, then you can use the [`clean_build_artifacts`](#clean_build_artifacts) action to clean those temporary files up before running this action."
         ].join("\n")
       end

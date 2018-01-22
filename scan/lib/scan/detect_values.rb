@@ -1,3 +1,7 @@
+require 'fastlane_core/device_manager'
+require 'fastlane_core/project'
+require_relative 'module'
+
 module Scan
   # This class detects all kinds of default values
   class DetectValues
@@ -186,7 +190,7 @@ module Scan
     end
 
     def self.min_xcode8?
-      Helper.xcode_version.split(".").first.to_i >= 8
+      Helper.xcode_at_least?("8.0")
     end
 
     def self.detect_destination

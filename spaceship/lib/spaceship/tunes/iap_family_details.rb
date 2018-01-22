@@ -1,3 +1,4 @@
+require_relative 'tunes_base'
 
 module Spaceship
   module Tunes
@@ -15,12 +16,6 @@ module Spaceship
         'id' => :family_id,
         'name.value' => :name
       })
-
-      class << self
-        def factory(attrs)
-          return self.new(attrs)
-        end
-      end
 
       def versions=(value = {})
         if value.kind_of?(Array)

@@ -1,5 +1,6 @@
-require "fastlane_core"
-require "credentials_manager"
+require 'fastlane_core/configuration/config_item'
+require 'credentials_manager/appfile_config'
+require_relative 'module'
 
 module Scan
   class Options
@@ -16,7 +17,7 @@ module Scan
                                      short_option: "-w",
                                      env_name: "SCAN_WORKSPACE",
                                      optional: true,
-                                     description: "Path the workspace file",
+                                     description: "Path to the workspace file",
                                      verify_block: proc do |value|
                                        v = File.expand_path(value.to_s)
                                        UI.user_error!("Workspace file not found at path '#{v}'") unless File.exist?(v)
@@ -27,7 +28,7 @@ module Scan
                                      short_option: "-p",
                                      optional: true,
                                      env_name: "SCAN_PROJECT",
-                                     description: "Path the project file",
+                                     description: "Path to the project file",
                                      verify_block: proc do |value|
                                        v = File.expand_path(value.to_s)
                                        UI.user_error!("Project file not found at path '#{v}'") unless File.exist?(v)
@@ -72,35 +73,41 @@ module Scan
                                      is_string: false,
                                      default_value: false),
         FastlaneCore::ConfigItem.new(key: :code_coverage,
-                                     description: "Should generate code coverage (Xcode 7 only)?",
+                                     description: "Should code coverage be generated? (Xcode 7 and up)",
                                      is_string: false,
+                                     type: Boolean,
                                      optional: true),
         FastlaneCore::ConfigItem.new(key: :address_sanitizer,
-                                     description: "Should turn on the address sanitizer?",
+                                     description: "Should the address sanitizer be turned on?",
                                      is_string: false,
+                                     type: Boolean,
                                      optional: true,
                                      conflicting_options: [:thread_sanitizer],
                                      conflict_block: proc do |value|
                                        UI.user_error!("You can't use 'address_sanitizer' and 'thread_sanitizer' options in one run")
                                      end),
         FastlaneCore::ConfigItem.new(key: :thread_sanitizer,
-                                     description: "Should turn on the thread sanitizer?",
+                                     description: "Should the thread sanitizer be turned on?",
                                      is_string: false,
+                                     type: Boolean,
                                      optional: true,
                                      conflicting_options: [:address_sanitizer],
                                      conflict_block: proc do |value|
                                        UI.user_error!("You can't use 'thread_sanitizer' and 'address_sanitizer' options in one run")
                                      end),
         FastlaneCore::ConfigItem.new(key: :skip_build,
-                                     description: "Should skip debug build before test build?",
+                                     description: "Should debug build be skipped before test build?",
                                      short_option: "-r",
                                      env_name: "SCAN_SKIP_BUILD",
                                      is_string: false,
+                                     type: Boolean,
                                      default_value: false),
         FastlaneCore::ConfigItem.new(key: :output_directory,
                                      short_option: "-o",
                                      env_name: "SCAN_OUTPUT_DIRECTORY",
                                      description: "The directory in which all reports will be stored",
+                                     code_gen_sensitive: true,
+                                     code_gen_default_value: "./test_output",
                                      default_value: File.join(containing, "test_output")),
         FastlaneCore::ConfigItem.new(key: :output_style,
                                      short_option: "-b",
@@ -124,7 +131,7 @@ module Scan
         FastlaneCore::ConfigItem.new(key: :buildlog_path,
                                      short_option: "-l",
                                      env_name: "SCAN_BUILDLOG_PATH",
-                                     description: "The directory were to store the raw log",
+                                     description: "The directory where to store the raw log",
                                      default_value: "#{FastlaneCore::Helper.buildlog_path}/scan"),
         FastlaneCore::ConfigItem.new(key: :include_simulator_logs,
                                      env_name: "SCAN_INCLUDE_SIMULATOR_LOGS",
@@ -143,6 +150,7 @@ module Scan
                                      env_name: "SCAN_TEST_WITHOUT_BUILDING",
                                      description: "Test without building, requires a derived data path",
                                      is_string: false,
+                                     type: Boolean,
                                      conflicting_options: [:build_for_testing],
                                      optional: true),
         FastlaneCore::ConfigItem.new(key: :build_for_testing,
@@ -151,12 +159,13 @@ module Scan
                                      description: "Build for testing only, does not run tests",
                                      conflicting_options: [:test_without_building],
                                      is_string: false,
+                                     type: Boolean,
                                      optional: true),
         FastlaneCore::ConfigItem.new(key: :xctestrun,
                                      short_option: "-X",
                                      env_name: "SCAN_XCTESTRUN",
                                      description: "Run tests using the provided .xctestrun file",
-                                     conflicting_options: [:test_without_building, :build_for_testing],
+                                     conflicting_options: [:build_for_testing],
                                      is_string: true,
                                      optional: true),
         FastlaneCore::ConfigItem.new(key: :derived_data_path,
@@ -168,7 +177,7 @@ module Scan
                                      short_option: "-z",
                                      env_name: "SCAN_RESULT_BUNDLE",
                                      is_string: false,
-                                     description: "Produce the result bundle describing what occurred will be placed",
+                                     description: "Location of the Xcode result bundle",
                                      optional: true),
         FastlaneCore::ConfigItem.new(key: :sdk,
                                      short_option: "-k",
@@ -178,7 +187,7 @@ module Scan
         FastlaneCore::ConfigItem.new(key: :open_report,
                                      short_option: "-g",
                                      env_name: "SCAN_OPEN_REPORT",
-                                     description: "Should the HTML report be opened when tests are completed",
+                                     description: "Should the HTML report be opened when tests are completed?",
                                      is_string: false,
                                      default_value: false),
         FastlaneCore::ConfigItem.new(key: :configuration,

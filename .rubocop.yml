@@ -1,3 +1,10 @@
+require:
+  - rubocop/require_tools
+  - ./rubocop/fork_usage.rb
+
+Style/MultipleComparison:
+  Enabled: false
+
 Style/PercentLiteralDelimiters:
   Enabled: false
 
@@ -42,6 +49,11 @@ Style/VariableNumber:
 Style/MethodMissing:
   Enabled: false
 
+# This rule isn't useful, lots of discussion happening around it also
+# e.g. https://github.com/bbatsov/rubocop/issues/2338
+MultilineBlockChain:
+  Enabled: false
+
 #
 #   File.chmod(0777, f)
 #
@@ -75,15 +87,29 @@ Lint/UselessAssignment:
   Exclude:
     - '**/spec/**/*'
 
+# In specs requires are done automatically
+Require/MissingRequireStatement:
+  Exclude:
+    - '**/spec/**/*.rb'
+    - '**/spec_helper.rb'
+    - 'spaceship/lib/spaceship/babosa_fix.rb'
+    - '**/Fastfile'
+    - '**/*.gemspec'
+    - 'rakelib/**/*'
+    - '**/*.rake'
+    - '**/Rakefile'
+    - 'fastlane/**/*' # TODO: remove
+    - 'supply/**/*' # TODO: remove
+
 # We could potentially enable the 2 below:
-Style/IndentHash:
+Layout/IndentHash:
   Enabled: false
 
-Style/AlignHash:
+Layout/AlignHash:
   Enabled: false
 
 # HoundCI doesn't like this rule
-Style/DotPosition:
+Layout/DotPosition:
   Enabled: false
 
 # We allow !! as it's an easy way to convert ot boolean
@@ -95,7 +121,7 @@ Style/SymbolArray:
   Enabled: false
 
 # We still support Ruby 2.0.0
-Style/IndentHeredoc:
+Layout/IndentHeredoc:
   Enabled: false
 
 # This cop would not work fine with rspec
@@ -209,11 +235,12 @@ Style/PerlBackrefs:
   Enabled: false
 
 # Disable '+ should be surrounded with a single space' for xcodebuild_spec.rb
-Style/SpaceAroundOperators:
+Layout/SpaceAroundOperators:
   Exclude:
     - '**/spec/actions_specs/xcodebuild_spec.rb'
 
 AllCops:
+  TargetRubyVersion: 2.0
   Include:
     - '**/fastlane/Fastfile'
   Exclude:
@@ -231,6 +258,7 @@ Style/FileName:
     - '**/Fastfile'
     - '**/Deliverfile'
     - '**/Snapfile'
+    - '**/*.gemspec'
 
 # We're not there yet
 Style/Documentation:
@@ -251,3 +279,29 @@ Style/IfInsideElse:
 # Sometimes we just want to 'collect'
 Style/CollectionMethods:
   Enabled: false
+
+# Check whether fork is handled correctly on all platforms
+CrossPlatform/ForkUsage:
+  Exclude:
+    - '**/plugins/template/**/*'
+
+# ( ) for method calls
+Style/MethodCallWithArgsParentheses:
+  Enabled: true
+  IgnoredMethods:
+    - 'require'
+    - 'require_relative'
+    - 'gem'
+    - 'program'
+    - 'command'
+    - 'raise'
+    - 'attr_accessor'
+    - 'attr_reader'
+    - 'lane'
+    # rspec tests code below
+    - 'to'
+    - 'describe'
+    - 'it'
+    - 'context'
+    - 'before'
+    - 'after'

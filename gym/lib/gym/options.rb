@@ -1,5 +1,6 @@
-require "fastlane_core"
-require "credentials_manager"
+require 'fastlane_core/configuration/config_item'
+require 'credentials_manager/appfile_config'
+require_relative 'module'
 
 module Gym
   class Options
@@ -15,7 +16,7 @@ module Gym
                                      short_option: "-w",
                                      env_name: "GYM_WORKSPACE",
                                      optional: true,
-                                     description: "Path the workspace file",
+                                     description: "Path to the workspace file",
                                      verify_block: proc do |value|
                                        v = File.expand_path(value.to_s)
                                        UI.user_error!("Workspace file not found at path '#{v}'") unless File.exist?(v)
@@ -30,7 +31,7 @@ module Gym
                                      short_option: "-p",
                                      optional: true,
                                      env_name: "GYM_PROJECT",
-                                     description: "Path the project file",
+                                     description: "Path to the project file",
                                      verify_block: proc do |value|
                                        v = File.expand_path(value.to_s)
                                        UI.user_error!("Project file not found at path '#{v}'") unless File.exist?(v)
@@ -61,11 +62,7 @@ module Gym
                                      short_option: "-n",
                                      env_name: "GYM_OUTPUT_NAME",
                                      description: "The name of the resulting ipa file",
-                                     optional: true,
-                                     verify_block: proc do |value|
-                                       value.gsub!(".ipa", "")
-                                       value.gsub!(File::SEPARATOR, "_")
-                                     end),
+                                     optional: true),
         FastlaneCore::ConfigItem.new(key: :configuration,
                                      short_option: "-q",
                                      env_name: "GYM_CONFIGURATION",
@@ -92,12 +89,14 @@ module Gym
                                      env_name: "GYM_INCLUDE_SYMBOLS",
                                      description: "Should the ipa file include symbols?",
                                      is_string: false,
+                                     type: Boolean,
                                      optional: true),
         FastlaneCore::ConfigItem.new(key: :include_bitcode,
                                      short_option: "-z",
                                      env_name: "GYM_INCLUDE_BITCODE",
-                                     description: "Should the ipa include bitcode?",
+                                     description: "Should the ipa file include bitcode?",
                                      is_string: false,
+                                     type: Boolean,
                                      optional: true),
         FastlaneCore::ConfigItem.new(key: :export_method,
                                      short_option: "-j",
@@ -107,13 +106,15 @@ module Gym
                                      optional: true,
                                      verify_block: proc do |value|
                                        av = %w(app-store ad-hoc package enterprise development developer-id)
-                                       UI.user_error!("Unsupported export_method, must be: #{av}") unless av.include?(value)
+                                       UI.user_error!("Unsupported export_method '#{value}', must be: #{av}") unless av.include?(value)
                                      end),
         FastlaneCore::ConfigItem.new(key: :export_options,
                                      env_name: "GYM_EXPORT_OPTIONS",
-                                     description: "Specifies path to export options plist. User xcodebuild -help to print the full set of available options",
+                                     description: "Specifies path to export options plist. Use 'xcodebuild -help' to print the full set of available options",
                                      is_string: false,
                                      optional: true,
+                                     type: Hash,
+                                     skip_type_validation: true,
                                      conflict_block: proc do |value|
                                        UI.user_error!("'#{value.key}' must be false to use 'export_options'")
                                      end),
@@ -127,8 +128,15 @@ module Gym
                                      type: :shell_string),
         FastlaneCore::ConfigItem.new(key: :skip_build_archive,
                                      env_name: "GYM_SKIP_BUILD_ARCHIVE",
-                                     description: "Export ipa from previously build xarchive. Uses archive_path as source",
+                                     description: "Export ipa from previously built xarchive. Uses archive_path as source",
                                      is_string: false,
+                                     type: Boolean,
+                                     optional: true),
+        FastlaneCore::ConfigItem.new(key: :skip_archive,
+                                     env_name: "GYM_SKIP_ARCHIVE",
+                                     description: "After building, don't archive, effectively not including -archivePath param",
+                                     is_string: false,
+                                     type: Boolean,
                                      optional: true),
         # Very optional
         FastlaneCore::ConfigItem.new(key: :build_path,
@@ -143,13 +151,13 @@ module Gym
         FastlaneCore::ConfigItem.new(key: :derived_data_path,
                                      short_option: "-f",
                                      env_name: "GYM_DERIVED_DATA_PATH",
-                                     description: "The directory where build products and other derived data will go",
+                                     description: "The directory where built products and other derived data will go",
                                      optional: true),
         FastlaneCore::ConfigItem.new(key: :result_bundle,
                                      short_option: "-u",
                                      env_name: "GYM_RESULT_BUNDLE",
                                      is_string: false,
-                                     description: "Produce the result bundle describing what occurred will be placed",
+                                     description: "Location of the Xcode result bundle",
                                      optional: true),
         FastlaneCore::ConfigItem.new(key: :buildlog_path,
                                      short_option: "-l",
@@ -227,14 +235,20 @@ module Gym
                                      optional: true),
         FastlaneCore::ConfigItem.new(key: :analyze_build_time,
                                      env_name: "GYM_ANALYZE_BUILD_TIME",
-                                     description: "Analyze the project build time and store the output in culprits.txt file",
+                                     description: "Analyze the project build time and store the output in 'culprits.txt' file",
                                      optional: true,
                                      is_string: false),
         FastlaneCore::ConfigItem.new(key: :xcpretty_utf,
                                      env_name: "XCPRETTY_UTF",
                                      description: "Have xcpretty use unicode encoding when reporting builds",
                                      optional: true,
-                                     is_string: false)
+                                     is_string: false),
+        FastlaneCore::ConfigItem.new(key: :skip_profile_detection,
+                                     env_name: "GYM_SKIP_PROFILE_DETECTION",
+                                     description: "Do not try to build a profile mapping from the xcodeproj. Match or a manually provided mapping should be used",
+                                     optional: true,
+                                     is_string: false,
+                                     default_value: false)
       ]
     end
   end

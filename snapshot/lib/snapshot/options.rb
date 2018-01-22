@@ -1,5 +1,7 @@
-require 'fastlane_core'
-require 'credentials_manager'
+require 'fastlane_core/configuration/config_item'
+require 'fastlane_core/device_manager'
+require 'credentials_manager/appfile_config'
+require_relative 'module'
 
 module Snapshot
   class Options
@@ -110,6 +112,7 @@ module Snapshot
                                      short_option: "-a",
                                      optional: true,
                                      description: "The bundle identifier of the app to uninstall (only needed when enabling reinstall_app)",
+                                     code_gen_sensitive: true,
                                      default_value: ENV["SNAPSHOT_APP_IDENTITIFER"] || CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)),
         FastlaneCore::ConfigItem.new(key: :add_photos,
                                      env_name: 'SNAPSHOT_PHOTOS',
@@ -136,6 +139,13 @@ module Snapshot
                                      description: "Should the project be cleaned before building it?",
                                      is_string: false,
                                      default_value: false),
+        FastlaneCore::ConfigItem.new(key: :test_without_building,
+                                     short_option: "-T",
+                                     env_name: "SNAPSHOT_TEST_WITHOUT_BUILDING",
+                                     description: "Test without building, requires a derived data path",
+                                     is_string: false,
+                                     type: Boolean,
+                                     optional: true),
         FastlaneCore::ConfigItem.new(key: :configuration,
                                      short_option: "-q",
                                      env_name: "SNAPSHOT_CONFIGURATION",
@@ -181,6 +191,11 @@ module Snapshot
                                      env_name: "SNAPSHOT_NAMESPACE_LOG_FILES",
                                      description: "Separate the log files per device and per language",
                                      optional: true,
+                                     is_string: false),
+        FastlaneCore::ConfigItem.new(key: :concurrent_simulators,
+                                     env_name: "SNAPSHOT_EXECUTE_CONCURRENT_SIMULATORS",
+                                     description: "Take snapshots on multiple simulators concurrently. Note: This option is only applicable when running against Xcode 9",
+                                     default_value: true,
                                      is_string: false)
       ]
     end

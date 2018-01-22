@@ -28,7 +28,7 @@ module Fastlane
         [
           FastlaneCore::ConfigItem.new(key: :serial,
                                        env_name: "FL_ANDROID_SERIAL",
-                                       description: "Android serial, which device should be used for this command",
+                                       description: "Android serial of the device to use for this command",
                                        is_string: true,
                                        default_value: ""),
           FastlaneCore::ConfigItem.new(key: :command,
@@ -62,6 +62,10 @@ module Fastlane
 
       def self.return_value
         "The output of the adb command"
+      end
+
+      def self.return_type
+        :string
       end
 
       def self.authors

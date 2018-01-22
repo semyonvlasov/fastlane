@@ -19,8 +19,8 @@ apply plugin: 'com.android.library'
 apply plugin: 'com.novoda.bintray-release'
 
 android {
-    compileSdkVersion 25
-    buildToolsVersion "25.0.2"
+    compileSdkVersion 26
+    buildToolsVersion "26.0.0"
 
     defaultConfig {
         versionCode versionCodeInt
@@ -40,7 +40,7 @@ publish {
     groupId = 'tools.fastlane'
     artifactId = 'screengrab'
     publishVersion = versionNameString
-    website = 'https://github.com/fastlane/screengrab'
+    website = 'https://docs.fastlane.tools/actions/screengrab/'
     bintrayUser = lookupProperty(project, 'bintrayUser', 'BINTRAY_USER')
     bintrayKey = lookupProperty(project, 'bintrayKey', 'BINTRAY_KEY')
 }

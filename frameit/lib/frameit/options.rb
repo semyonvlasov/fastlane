@@ -1,3 +1,7 @@
+require 'fastlane_core/configuration/config_item'
+
+require_relative 'module'
+
 module Frameit
   class Options
     def self.available_options
@@ -26,20 +30,33 @@ module Frameit
                                      optional: true,
                                      verify_block: proc do |value|
                                        available = ['iPhone_6_Plus', 'iPhone_5s', 'iPhone_4', 'iPad_mini', 'Mac']
-                                       unless available.include? value
+                                       unless available.include?(value)
                                          UI.user_error!("Invalid device type '#{value}'. Available values: #{available}")
                                        end
                                      end),
         FastlaneCore::ConfigItem.new(key: :use_legacy_iphone5s,
                            env_name: "FRAMEIT_USE_LEGACY_IPHONE_5_S",
                            is_string: false,
-                           description: "use iPhone 5s instead of iPhone SE frames",
+                           description: "Use iPhone 5s instead of iPhone SE frames",
                            default_value: false),
         FastlaneCore::ConfigItem.new(key: :use_legacy_iphone6s,
                            env_name: "FRAMEIT_USE_LEGACY_IPHONE_6_S",
                            is_string: false,
                            description: "Use iPhone 6s frames instead of iPhone 7 frames",
-                           default_value: false)
+                           default_value: false),
+        FastlaneCore::ConfigItem.new(key: :force_orientation_block,
+                           type: :string_callback,
+                           description: "[Advanced] A block to customize your screnshots' device orientation",
+                           display_in_shell: false,
+                           optional: true,
+                           default_value: proc do |filename|
+                             f = filename.downcase
+                             if f.end_with?("force_landscapeleft")
+                               :landscape_left
+                             elsif f.end_with?("force_landscaperight")
+                               :landscape_right
+                             end
+                           end)
       ]
     end
   end

@@ -1,6 +1,6 @@
 describe Fastlane do
   describe Fastlane::PluginManager do
-    let (:plugin_manager) { Fastlane::PluginManager.new }
+    let(:plugin_manager) { Fastlane::PluginManager.new }
     describe "#gemfile_path" do
       it "returns an absolute path if Gemfile available" do
         expect(plugin_manager.gemfile_path).to eq(File.expand_path("./Gemfile"))
@@ -79,6 +79,18 @@ describe Fastlane do
         expect(plugin_manager).to receive(:ensure_plugins_attached!)
         expect(plugin_manager).to receive(:exec).with("bundle install --quiet && echo 'Successfully installed plugins'")
         plugin_manager.install_dependencies!
+      end
+    end
+
+    describe "#update_dependencies!" do
+      before do
+        allow(Bundler::SharedHelpers).to receive(:default_gemfile).and_return("./fastlane/spec/fixtures/plugins/Pluginfile1")
+      end
+
+      it "execs out the correct command" do
+        expect(plugin_manager).to receive(:ensure_plugins_attached!)
+        expect(plugin_manager).to receive(:exec).with("bundle update fastlane-plugin-xcversion --quiet && echo 'Successfully updated plugins'")
+        plugin_manager.update_dependencies!
       end
     end
 
@@ -189,7 +201,7 @@ describe Fastlane do
           result = Fastlane::FastFile.new.parse("lane :test do
             my_custom_plugin
           end").runner.execute(:test)
-        end.to raise_exception("Plugin 'my_custom_plugin' was not properly loaded, make sure to follow the plugin docs for troubleshooting: https://github.com/fastlane/fastlane/blob/master/fastlane/docs/PluginsTroubleshooting.md")
+        end.to raise_exception("Plugin 'my_custom_plugin' was not properly loaded, make sure to follow the plugin docs for troubleshooting: https://docs.fastlane.tools/plugins/plugins-troubleshooting/")
       end
 
       it "shows an appropriate error message when an action is not available, which is not a plugin" do
@@ -210,7 +222,7 @@ describe Fastlane do
         expect(Fastlane::FastlaneRequire).to receive(:install_gem_if_needed).with(gem_name: plugin_name, require_gem: true).and_raise(ex)
         expect(UI).to receive(:error).with("Error loading plugin '#{plugin_name}': #{ex}")
         pm.load_plugins
-        expect(pm.plugin_references[plugin_name]).not_to be_nil
+        expect(pm.plugin_references[plugin_name]).not_to(be_nil)
       end
     end
   end

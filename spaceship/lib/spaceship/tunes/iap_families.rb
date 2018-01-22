@@ -1,15 +1,10 @@
+require_relative 'iap_family_list'
 
 module Spaceship
   module Tunes
     class IAPFamilies < TunesBase
       # @return (Spaceship::Tunes::Application) A reference to the application
       attr_accessor :application
-
-      class << self
-        def factory(attrs)
-          return self.new(attrs)
-        end
-      end
 
       # Create a new Purchase Family
       # a freshly created family has to have atleast one product.

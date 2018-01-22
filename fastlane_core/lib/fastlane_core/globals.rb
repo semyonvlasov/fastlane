@@ -5,9 +5,9 @@ module FastlaneCore
     end
 
     class << self
-      attr_writer :captured_output
-      attr_writer :capture_output
-      attr_writer :verbose
+      attr_writer(:captured_output)
+      attr_writer(:capture_output)
+      attr_writer(:verbose)
     end
 
     def self.capture_output?
@@ -16,7 +16,7 @@ module FastlaneCore
     end
 
     def self.captured_output?
-      @capture_output && @captured_output.length > 0
+      @capture_output && @captured_output.to_s.length > 0
     end
 
     def self.verbose?

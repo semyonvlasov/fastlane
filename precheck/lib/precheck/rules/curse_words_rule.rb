@@ -1,5 +1,6 @@
 require 'digest'
-require 'precheck/rule'
+
+require_relative '../rule'
 
 module Precheck
   class CurseWordsRule < TextRule
@@ -22,8 +23,12 @@ module Precheck
     def rule_block
       return lambda { |text|
         return RuleReturn.new(validation_state: Precheck::VALIDATION_STATES[:passed]) if text.to_s.strip.empty?
+        text = text.downcase
+        split_words = text.split
+        split_words_without_punctuation = text.gsub(/\W/, ' ').split
 
-        all_metadata_words_list = text.to_s.downcase.split
+        # remove punctuation and add only unique words
+        all_metadata_words_list = (split_words + split_words_without_punctuation).uniq
         metadata_word_hashes = all_metadata_words_list.map { |word| Digest::SHA256.hexdigest(word) }
         curse_hashes_set = hashed_curse_word_set
 
@@ -36,9 +41,9 @@ module Precheck
 
         if found_words.length > 0
           friendly_found_words = found_words.join(', ')
-          UI.verbose "#{self.class.name.split('::').last ||= self.class.name} found potential curse words 😬"
-          UI.verbose "Keep in mind, these words might be ok given the context they are used in"
-          UI.verbose "Matched: \"#{friendly_found_words}\""
+          UI.verbose("#{self.class.name.split('::').last ||= self.class.name} found potential curse words 😬")
+          UI.verbose("Keep in mind, these words might be ok given the context they are used in")
+          UI.verbose("Matched: \"#{friendly_found_words}\"")
           return RuleReturn.new(validation_state: VALIDATION_STATES[:failed], failure_data: "found: #{friendly_found_words}")
         else
           return RuleReturn.new(validation_state: VALIDATION_STATES[:passed])

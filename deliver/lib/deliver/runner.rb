@@ -1,4 +1,18 @@
-require 'precheck'
+require 'precheck/options'
+require 'precheck/runner'
+require 'fastlane_core/configuration/configuration'
+require 'fastlane_core/crash_reporter/crash_reporter'
+require 'fastlane_core/ipa_upload_package_builder'
+require 'fastlane_core/pkg_upload_package_builder'
+require 'fastlane_core/itunes_transporter'
+require 'spaceship'
+require_relative 'html_generator'
+require_relative 'submit_for_review'
+require_relative 'upload_assets'
+require_relative 'upload_price_tier'
+require_relative 'upload_metadata'
+require_relative 'upload_screenshots'
+require_relative 'detect_values'
 
 module Deliver
   class Runner
@@ -6,13 +20,14 @@ module Deliver
 
     def initialize(options, skip_auto_detection = {})
       self.options = options
+
       login
+
       Deliver::DetectValues.new.run!(self.options, skip_auto_detection)
       FastlaneCore::PrintTable.print_values(config: options, hide_keys: [:app], mask_keys: ['app_review_information.demo_password'], title: "deliver #{Fastlane::VERSION} Summary")
     end
 
     def login
-      UI.message("Running precheck before submitting to review, if you'd like to disable this check you can set run_precheck_before_submit to false") unless options[:run_precheck_before_submit] == false
       UI.message("Login to iTunes Connect (#{options[:username]})")
       Spaceship::Tunes.login(options[:username])
       Spaceship::Tunes.select_team
@@ -38,6 +53,7 @@ module Deliver
     # Make sure we pass precheck before uploading
     def precheck_app
       return true unless options[:run_precheck_before_submit]
+      UI.message("Running precheck before submitting to review, if you'd like to disable this check you can set run_precheck_before_submit to false")
 
       if options[:submit_for_review]
         UI.message("Making sure we pass precheck 👮‍♀️ 👮 before we submit  🛫")
@@ -47,6 +63,7 @@ module Deliver
 
       precheck_options = {
         default_rule_level: options[:precheck_default_rule_level],
+        include_in_app_purchases: options[:precheck_include_in_app_purchases],
         app_identifier: options[:app_identifier],
         username: options[:username]
       }
@@ -86,10 +103,15 @@ module Deliver
 
     # Upload all metadata, screenshots, pricing information, etc. to iTunes Connect
     def upload_metadata
+      upload_metadata = UploadMetadata.new
+      upload_screenshots = UploadScreenshots.new
+
       # First, collect all the things for the HTML Report
-      screenshots = UploadScreenshots.new.collect_screenshots(options)
-      UploadMetadata.new.load_from_filesystem(options)
-      UploadMetadata.new.assign_defaults(options)
+      screenshots = upload_screenshots.collect_screenshots(options)
+      upload_metadata.load_from_filesystem(options)
+
+      # Assign "default" values to all languages
+      upload_metadata.assign_defaults(options)
 
       # Handle app icon / watch icon
       prepare_app_icons(options)
@@ -98,8 +120,8 @@ module Deliver
       validate_html(screenshots)
 
       # Commit
-      UploadMetadata.new.upload(options)
-      UploadScreenshots.new.upload(options, screenshots)
+      upload_metadata.upload(options)
+      upload_screenshots.upload(options, screenshots)
       UploadPriceTier.new.upload(options)
       UploadAssets.new.upload(options) # e.g. app icon
     end

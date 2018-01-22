@@ -22,13 +22,13 @@ module Fastlane
       def self.upload_on_s3(file, api_key, store_id, group_ids = '')
         file_name = file.split('/').last
         uri = URI("#{APPALOOSA_SERVER}/upload_services/presign_form")
-        params = { file: file_name, store_id: store_id, group_ids: group_ids }
+        params = { file: file_name, store_id: store_id, group_ids: group_ids, api_key: api_key }
         uri.query = URI.encode_www_form(params)
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = true
         presign_form_response = http.request(Net::HTTP::Get.new(uri.request_uri))
         json_res = JSON.parse(presign_form_response.body)
-        return if error_detected json_res['errors']
+        return if error_detected(json_res['errors'])
         s3_sign = json_res['s3_sign']
         path = json_res['path']
         uri = URI.parse(Base64.decode64(s3_sign))
@@ -123,9 +123,9 @@ module Fastlane
         uoa_response = http.request(req)
         json_res = JSON.parse(uoa_response.body)
         if json_res['errors']
-          UI.error "App: #{json_res['errors']}"
+          UI.error("App: #{json_res['errors']}")
         else
-          UI.success "Binary processing: Check your app': #{json_res['link']}"
+          UI.success("Binary processing: Check your app': #{json_res['link']}")
         end
       end
 
@@ -207,12 +207,12 @@ module Fastlane
                                        default_value: Actions.lane_context[SharedValues::SNAPSHOT_SCREENSHOTS_PATH]),
           FastlaneCore::ConfigItem.new(key: :locale,
                                        env_name: 'FL_APPALOOSA_LOCALE',
-                                       description: 'Select the folder locale for yours screenshots',
+                                       description: 'Select the folder locale for your screenshots',
                                        default_value: 'en-US',
                                        optional: true),
           FastlaneCore::ConfigItem.new(key: :device,
                                        env_name: 'FL_APPALOOSA_DEVICE',
-                                       description: 'Select the device format for yours screenshots',
+                                       description: 'Select the device format for your screenshots',
                                        optional: true),
           FastlaneCore::ConfigItem.new(key: :description,
                                        env_name: 'FL_APPALOOSA_DESCRIPTION',
@@ -226,7 +226,7 @@ module Fastlane
       end
 
       def self.is_supported?(platform)
-        [:ios, :mac, :android].include? platform
+        [:ios, :mac, :android].include?(platform)
       end
 
       def self.invalid_response?(url_for_download_response)
