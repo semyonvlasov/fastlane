@@ -51,8 +51,8 @@ module Spaceship
         'clearedForSale.value' => :cleared_for_sale
       })
 
-      def initialize(attrs)
-        super(attrs)
+      def initialize(attrs, existing_client = nil)
+        super(attrs, existing_client)
 
         store_locale_code_to_version_detail_id
         store_review_screenshot
