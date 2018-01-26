@@ -269,6 +269,10 @@ module Spaceship
         territorial_pricing_info
       end
 
+      def has_old_review_screenshot?
+        !!old_review_screenshot
+      end
+
       private
 
       # Checks wheather an iap uses world wide or territorial pricing.
