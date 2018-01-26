@@ -318,7 +318,9 @@ module Spaceship
       end
 
       def store_review_screenshot
-        return nil unless raw_data['versions'] && raw_data['versions'][0] && raw_data['versions'][0].with_indifferent_access['reviewScreenshot']
+        return nil unless raw_data['versions'] && raw_data['versions'][0]
+        return nil unless review_screenshot_hash = raw_data['versions'][0].with_indifferent_access['reviewScreenshot']
+        return nil unless review_screenshot_hash['value']['url']
 
         @old_review_screenshot_hash = raw_data['versions'][0].with_indifferent_access['reviewScreenshot']
       end
