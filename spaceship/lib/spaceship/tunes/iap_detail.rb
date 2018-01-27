@@ -267,7 +267,7 @@ module Spaceship
               {
                 value: {
                   country: language_code,
-                  durationType: "2w",
+                  durationType: subscription_free_trial,
                   numOfPeriods: 1,
                   offerModeType: "FreeTrial",
                   startDate: subscription_free_trial_start_date,
