@@ -24,6 +24,12 @@ module Spaceship
       # @return (String) free trial period
       attr_accessor :subscription_free_trial
 
+      # @return (String) free trial period start date
+      attr_accessor :subscription_free_trial_start_date
+
+      # @return (String) free trial period end date
+      attr_accessor :subscription_free_trial_end_date
+
       # @return (String) subscription duration
       attr_accessor :subscription_duration
 
@@ -47,7 +53,6 @@ module Spaceship
         'productId.value' => :product_id,
         'isNewsSubscription' => :is_news_subscription,
         'pricingDurationType.value' => :subscription_duration,
-        'freeTrialDurationType.value' => :subscription_free_trial,
         'clearedForSale.value' => :cleared_for_sale
       })
 
@@ -212,10 +217,12 @@ module Spaceship
           }
         end
 
+        language_codes = []
         if subscription_price_target
           intervals_array = [] unless append_new_pricing_intervals
           pricing_calculator = client.iap_subscription_pricing_target(app_id: application.apple_id, purchase_id: purchase_id, currency: subscription_price_target[:currency], tier: subscription_price_target[:tier])
           pricing_calculator.each do |language_code, value|
+            language_codes << language_code
             intervals_array << {
               value: {
                 tierStem: value["tierStem"],
@@ -226,7 +233,6 @@ module Spaceship
               }
             }
           end
-
         end
 
         raw_data.set(["pricingIntervals"], intervals_array)
@@ -247,6 +253,33 @@ module Spaceship
         if raw_data["addOnType"] == Spaceship::Tunes::IAPType::RECURRING
           client.update_recurring_iap_pricing!(app_id: application.apple_id, purchase_id: self.purchase_id,
                                                pricing_intervals: raw_data["pricingIntervals"])
+
+          # if there's a new free_trial set and a required start date, then updat free trial in Intro Offers
+          if subscription_free_trial && subscription_free_trial_start_date
+            unless language_codes.any?
+              pricing_calculator = client.iap_subscription_pricing_target(app_id: application.apple_id, purchase_id: purchase_id, currency: subscription_price_target[:currency], tier: subscription_price_target[:tier])
+              pricing_calculator.each do |language_code, value|
+                language_codes << language_code
+              end
+            end
+
+            intro_offers = language_codes.map do |language_code|
+              {
+                value: {
+                  country: language_code,
+                  durationType: "2w",
+                  numOfPeriods: 1,
+                  offerModeType: "FreeTrial",
+                  startDate: subscription_free_trial_start_date,
+                  endDate: subscription_free_trial_end_date || nil,
+                }
+              }
+            end
+            if intro_offers.any?
+              client.update_recurring_iap_intro_offers!(app_id: application.apple_id, purchase_id: self.purchase_id,
+                                                        intro_offers: intro_offers)
+            end
+          end
         end
       end
 
