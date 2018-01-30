@@ -61,6 +61,8 @@ module Spaceship
                   pricing_intervals: nil,
                   family_id: nil,
                   subscription_free_trial: nil,
+                  subscription_free_trial_start_date: nil,
+                  subscription_free_trial_end_date: nil,
                   subscription_duration: nil)
 
         client.create_iap!(app_id: self.application.apple_id,
@@ -73,18 +75,47 @@ module Spaceship
                            review_screenshot: review_screenshot,
                            pricing_intervals: pricing_intervals,
                            family_id: family_id,
-                           subscription_duration: subscription_duration,
-                           subscription_free_trial: subscription_free_trial)
+                           subscription_duration: subscription_duration)
 
-        # Update pricing for a recurring subscription.
-        if type == Spaceship::Tunes::IAPType::RECURRING && pricing_intervals
-          # There are cases where the product that was just created is not immediately found,
-          # and in order to update its pricing the purchase_id is needed. Therefore polling is done
-          # until it is found.
-          product = find(product_id) until product
-          client.update_recurring_iap_pricing!(app_id: self.application.apple_id,
-                                               purchase_id: product.purchase_id,
-                                               pricing_intervals: pricing_intervals)
+        if type == Spaceship::Tunes::IAPType::RECURRING
+          # Update pricing for a recurring subscription.
+          if pricing_intervals
+            # There are cases where the product that was just created is not immediately found,
+            # and in order to update its pricing the purchase_id is needed. Therefore polling is done
+            # until it is found.
+            product = find(product_id) until product
+            client.update_recurring_iap_pricing!(app_id: self.application.apple_id,
+                                                 purchase_id: product.purchase_id,
+                                                 pricing_intervals: pricing_intervals)
+          end
+
+          # update free trial period
+          if subscription_free_trial && subscription_free_trial_start_date
+            if subscription_free_trial && subscription_free_trial_start_date
+              language_codes = []
+              pricing_calculator = client.iap_subscription_pricing_target(app_id: application.apple_id, purchase_id: purchase_id, currency: subscription_price_target[:currency], tier: subscription_price_target[:tier])
+              pricing_calculator.each do |language_code, value|
+                language_codes << language_code
+              end
+
+              intro_offers = language_codes.map do |language_code|
+                {
+                  value: {
+                    country: language_code,
+                    durationType: subscription_free_trial,
+                    numOfPeriods: 1,
+                    offerModeType: "FreeTrial",
+                    startDate: subscription_free_trial_start_date,
+                    endDate: subscription_free_trial_end_date || nil,
+                  }
+                }
+              end
+              if intro_offers.any?
+                client.update_recurring_iap_intro_offers!(app_id: application.apple_id, purchase_id: self.purchase_id,
+                                                          intro_offers: intro_offers)
+              end
+            end
+          end
         end
       end
 
