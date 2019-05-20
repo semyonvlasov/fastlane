@@ -241,7 +241,7 @@ module Spaceship
         puts(info_value)
       end
 
-      return data
+      return [data, raw]
     end
     # rubocop:enable Metrics/PerceivedComplexity
 
@@ -266,7 +266,7 @@ module Spaceship
         req.headers['Content-Type'] = 'application/json'
       end
 
-      handle_itc_response(r.body)
+      handle_itc_response(r.body)[0]
     end
 
     # Creates a new application on iTunes Connect
@@ -315,7 +315,7 @@ module Spaceship
       end
 
       data = parse_response(r, 'data')
-      handle_itc_response(data)
+      handle_itc_response(data)[0]
     end
 
     def create_version!(app_id, version_number, platform = 'ios')
@@ -330,7 +330,7 @@ module Spaceship
       end
 
       data = parse_response(r, 'data')
-      handle_itc_response(data)
+      handle_itc_response(data)[0]
     end
 
     def get_resolution_center(app_id, platform)
@@ -413,7 +413,7 @@ module Spaceship
           req.headers['Content-Type'] = 'application/json'
         end
 
-        handle_itc_response(r.body, flaky_api_call: true)
+        handle_itc_response(r.body, flaky_api_call: true)[0]
       end
     end
 
@@ -475,7 +475,7 @@ module Spaceship
         req.body = data.to_json
         req.headers['Content-Type'] = 'application/json'
       end
-      handle_itc_response(r.body)
+      handle_itc_response(r.body)[0]
     end
 
     def update_member_roles!(member, roles: [], apps: [])
@@ -506,7 +506,7 @@ module Spaceship
         req.body = data.to_json
         req.headers['Content-Type'] = 'application/json'
       end
-      handle_itc_response(r.body)
+      handle_itc_response(r.body)[0]
     end
 
     #####################################################
@@ -541,7 +541,7 @@ module Spaceship
         req.body = data.to_json
         req.headers['Content-Type'] = 'application/json'
       end
-      handle_itc_response(r.body)
+      handle_itc_response(r.body)[0]
     end
 
     def price_tier(app_id)
@@ -608,7 +608,7 @@ module Spaceship
         req.body = data.to_json
         req.headers['Content-Type'] = 'application/json'
       end
-      handle_itc_response(r.body)
+      handle_itc_response(r.body)[0]
       data = parse_response(r, 'data')
       Spaceship::Tunes::Availability.factory(data)
     end
@@ -827,7 +827,7 @@ module Spaceship
         req.headers['Content-Type'] = 'application/json'
       end
 
-      handle_itc_response(r.body)
+      handle_itc_response(r.body)[0]
     end
 
     def remove_testflight_build_from_review!(app_id: nil, train: nil, build_number: nil, platform: 'ios')
@@ -836,25 +836,25 @@ module Spaceship
         req.body = {}.to_json
         req.headers['Content-Type'] = 'application/json'
       end
-      handle_itc_response(r.body)
+      handle_itc_response(r.body)[0]
     end
 
     # All build trains, even if there is no TestFlight
     def all_build_trains(app_id: nil, platform: 'ios')
       platform = 'ios' if platform.nil?
       r = request(:get, "ra/apps/#{app_id}/buildHistory?platform=#{platform}")
-      handle_itc_response(r.body)
+      handle_itc_response(r.body)[0]
     end
 
     def all_builds_for_train(app_id: nil, train: nil, platform: 'ios')
       platform = 'ios' if platform.nil?
       r = request(:get, "ra/apps/#{app_id}/trains/#{train}/buildHistory?platform=#{platform}")
-      handle_itc_response(r.body)
+      handle_itc_response(r.body)[0]
     end
 
     def build_details(app_id: nil, train: nil, build_number: nil, platform: nil)
       r = request(:get, "ra/apps/#{app_id}/platforms/#{platform || 'ios'}/trains/#{train}/builds/#{build_number}/details")
-      handle_itc_response(r.body)
+      handle_itc_response(r.body)[0]
     end
 
     def update_build_information!(app_id: nil,
@@ -885,7 +885,7 @@ module Spaceship
         req.body = build_info.to_json
         req.headers['Content-Type'] = 'application/json'
       end
-      handle_itc_response(r.body)
+      handle_itc_response(r.body)[0]
     end
 
     # rubocop:disable Metrics/ParameterLists
@@ -955,7 +955,7 @@ module Spaceship
         req.body = review_info.to_json
         req.headers['Content-Type'] = 'application/json'
       end
-      handle_itc_response(r.body)
+      handle_itc_response(r.body)[0]
     end
     # rubocop:enable Metrics/ParameterLists
 
@@ -965,7 +965,7 @@ module Spaceship
         req.url(url)
         req.headers['Content-Type'] = 'application/json'
       end
-      handle_itc_response(r.body)
+      handle_itc_response(r.body)[0]
 
       r.body['data']
     end
@@ -1028,7 +1028,7 @@ module Spaceship
         req.body = app_id.to_s
       end
 
-      handle_itc_response(r.body)
+      handle_itc_response(r.body)[0]
       parse_response(r, 'data')
     end
 
@@ -1051,7 +1051,7 @@ module Spaceship
     # Deletes a In-App-Purchases
     def delete_iap!(app_id: nil, purchase_id: nil)
       r = request(:delete, "ra/apps/#{app_id}/iaps/#{purchase_id}")
-      handle_itc_response(r)
+      handle_itc_response(r)[0]
     end
 
     # Loads the full In-App-Purchases
@@ -1087,7 +1087,7 @@ module Spaceship
           req.body = data.to_json
           req.headers['Content-Type'] = 'application/json'
         end
-        handle_itc_response(r.body)
+        handle_itc_response(r.body)[0]
       end
     end
 
@@ -1099,7 +1099,7 @@ module Spaceship
           req.body = data.to_json
           req.headers['Content-Type'] = 'application/json'
         end
-        handle_itc_response(r.body)
+        handle_itc_response(r.body)[0]
       end
     end
 
@@ -1112,7 +1112,7 @@ module Spaceship
           req.body = pricing_data.to_json
           req.headers['Content-Type'] = 'application/json'
         end
-        handle_itc_response(r.body)
+        handle_itc_response(r.body)[0]
       end
     end
 
@@ -1125,7 +1125,7 @@ module Spaceship
           req.body = pricing_data.to_json
           req.headers['Content-Type'] = 'application/json'
         end
-        handle_itc_response(r.body)
+        handle_itc_response(r.body)[0]
       end
     end
 
@@ -1148,7 +1148,7 @@ module Spaceship
         req.body = data.to_json
         req.headers['Content-Type'] = 'application/json'
       end
-      handle_itc_response(r.body)
+      handle_itc_response(r.body)[0]
     end
 
     # returns pricing goal array
@@ -1402,7 +1402,7 @@ module Spaceship
       end
 
       data = parse_response(r, 'data')
-      handle_itc_response(data)
+      handle_itc_response(data)[0]
     end
   end
   # rubocop:enable Metrics/ClassLength
