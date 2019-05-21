@@ -65,7 +65,7 @@ module Spaceship
                   subscription_free_trial_end_date: nil,
                   subscription_duration: nil)
 
-        client.create_iap!(app_id: self.application.apple_id,
+        response = client.create_iap!(app_id: self.application.apple_id,
                            type: type,
                            versions: versions,
                            reference_name: reference_name,
@@ -76,6 +76,13 @@ module Spaceship
                            pricing_intervals: pricing_intervals,
                            family_id: family_id,
                            subscription_duration: subscription_duration)
+
+        # We are grabbing the id from the url returned in the header.
+        # Apple returns no data in the response body when creating an IAP.
+        # It does return the url for the IAP in the headers, so we use that.
+        if match = response.headers[:location].match(/\/(\d+$)/)
+          iap_purchase_id = match[1]
+        end
 
         if type == Spaceship::Tunes::IAPType::RECURRING
           # Update pricing for a recurring subscription.
@@ -117,6 +124,8 @@ module Spaceship
             end
           end
         end
+
+        iap_purchase_id # Return the purchase id created on the client.
       end
 
       # find a specific product
