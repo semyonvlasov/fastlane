@@ -1215,7 +1215,19 @@ module Spaceship
         req.body = data.to_json
         req.headers['Content-Type'] = 'application/json'
       end
-      handle_itc_response(r.body)
+      response_hash = handle_itc_response(r.body)
+
+      # We are grabbing the id from the url returned in the header.
+      # Apple returns no data in the response body when creating an IAP.
+      # It does return the url for the IAP in the headers, so we use that.
+      if match = r.headers[:location].match(/\/(\d+$)/)
+        response_hash['data'] = {
+          original_data: response_hash['data'],
+          purchase_id: match[1]
+        }
+      end
+
+      response_hash
     end
 
     #####################################################

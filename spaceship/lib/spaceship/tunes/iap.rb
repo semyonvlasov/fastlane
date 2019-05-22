@@ -65,7 +65,7 @@ module Spaceship
                   subscription_free_trial_end_date: nil,
                   subscription_duration: nil)
 
-        client.create_iap!(app_id: self.application.apple_id,
+        response = client.create_iap!(app_id: self.application.apple_id,
                            type: type,
                            versions: versions,
                            reference_name: reference_name,
@@ -117,6 +117,8 @@ module Spaceship
             end
           end
         end
+
+        response
       end
 
       # find a specific product
