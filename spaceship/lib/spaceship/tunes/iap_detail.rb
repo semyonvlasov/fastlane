@@ -283,7 +283,7 @@ module Spaceship
         end
       end
 
-      def delete_free_trail
+      def delete_free_trial!
         client.delete_recurring_iap_intro_offers!(app_id: application.id, purchase_id: self.purchase_id)
       end
 
