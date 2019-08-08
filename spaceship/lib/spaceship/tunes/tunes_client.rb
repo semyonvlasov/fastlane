@@ -132,13 +132,13 @@ module Spaceship
     # where we should check
     # Returns a mapping of keys to data array if we find anything, otherwise, empty map
     def fetch_errors_in_data(data_section: nil, sub_section_name: nil, keys: nil)
-      if data_section && sub_section_name
+      if data_section.is_a?(Hash) && sub_section_name
         sub_section = data_section[sub_section_name]
       else
         sub_section = data_section
       end
 
-      unless sub_section
+      unless sub_section && sub_section.is_a?(Hash)
         return {}
       end
 
@@ -1124,6 +1124,25 @@ module Spaceship
           pricing_data["introOffers"] = intro_offers
           req.body = pricing_data.to_json
           req.headers['Content-Type'] = 'application/json'
+        end
+        handle_itc_response(r.body)
+      end
+    end
+
+    def delete_recurring_iap_intro_offers!(app_id: nil, purchase_id: nil)
+      with_tunes_retry do
+        r = request(:post) do |req|
+          # Have to create an array for the batch api
+          # {method: "DELETE", path: "/apps/APPID/iaps/PURCHASEID/pricing/intro-offers/REGIONCODE"}
+          batch_data = supported_territories.map do |territory|
+            {
+              method: "DELETE",
+              path: "/apps/#{app_id}/iaps/#{purchase_id}/pricing/intro-offers/#{territory.code}"
+            }
+          end
+
+          req.url("https://appstoreconnect.apple.com/WebObjects/iTunesConnect.woa/ra/apps/iaps/pricing/batch")
+          req.body = {batch: batch_data}.to_json
         end
         handle_itc_response(r.body)
       end
