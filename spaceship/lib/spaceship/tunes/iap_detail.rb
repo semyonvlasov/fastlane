@@ -247,7 +247,7 @@ module Spaceship
           raw_data["versions"][0]["reviewScreenshot"] = screenshot_data
         end
         # Update the Purchase
-        client.update_iap!(app_id: application.apple_id, purchase_id: self.purchase_id, data: raw_data)
+        updated_response = client.update_iap!(app_id: application.apple_id, purchase_id: self.purchase_id, data: raw_data)
 
         # Update pricing for a recurring subscription.
         if raw_data["addOnType"] == Spaceship::Tunes::IAPType::RECURRING
@@ -280,6 +280,12 @@ module Spaceship
                                                         intro_offers: intro_offers)
             end
           end
+        end
+
+        # Return the updated status if it is there
+        # TODO: Set the updated response on the IAPDetail object
+        if update_response.present? && update_response['versions'].present? && update_response['versions'][0].present?
+          update_response['versions'][0]['status']
         end
       end
 
