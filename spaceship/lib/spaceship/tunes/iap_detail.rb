@@ -285,7 +285,7 @@ module Spaceship
         # Return the updated status if it is there
         # TODO: Set the updated response on the IAPDetail object
         if updated_response.present? && updated_response['versions'].present? && updated_response['versions'][0].present?
-          Spaceship::Tunes::AppStatus.get_from_string updated_response['versions'][0]['status']
+          Spaceship::Tunes::IAPStatus.get_from_string updated_response['versions'][0]['status']
         end
       end
 
