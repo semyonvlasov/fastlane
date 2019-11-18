@@ -470,7 +470,7 @@ module Spaceship
 
     # Get the `itctx` from the new (22nd May 2017) API endpoint "olympus"
     def fetch_olympus_session
-      response = request(:get, "https://olympus.itunes.apple.com/v1/session")
+      response = request(:get, "https://appstoreconnect.apple.com/olympus/v1/session")
       body = response.body
       if body
         body = JSON.parse(body) if body.kind_of?(String)
