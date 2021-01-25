@@ -50,28 +50,40 @@ module Spaceship
       two_factor_url = "https://github.com/fastlane/fastlane/tree/master/spaceship#2-step-verification"
       puts("Two Factor Authentication for account '#{self.user}' is enabled")
 
-      if !File.exist?(persistent_cookie_path) && self.class.spaceship_session_env.to_s.length.zero?
-        puts("If you're running this in a non-interactive session (e.g. server or CI)")
-        puts("check out #{two_factor_url}")
-      else
-        # If the cookie is set but still required, the cookie is expired
-        puts("Your session cookie has been expired.")
-      end
-
       security_code = response.body["securityCode"]
       # {"length"=>6,
       #  "tooManyCodesSent"=>false,
       #  "tooManyCodesValidated"=>false,
       #  "securityCodeLocked"=>false}
       code_length = security_code["length"]
-      code = ask("Please enter the #{code_length} digit code: ")
+
+      body = nil
+
+      # Ask which phone number needs to be used for two factor auth
+      if response.body["noTrustedDevices"]
+        code_type = 'phone'
+        body = request_two_factor_code_from_phone_choose(response.body["trustedPhoneNumbers"], code_length)
+      else
+        code_type = 'trusteddevice'
+        # Prompt for code
+        if !File.exist?(persistent_cookie_path) && self.class.spaceship_session_env.to_s.length.zero?
+          puts("If you're running this in a non-interactive session (e.g. server or CI)")
+          puts("check out #{two_factor_url}")
+        else
+          # If the cookie is set but still required, the cookie is expired
+          puts("Your session cookie has been expired.")
+        end
+        code = ask("Please enter the #{code_length} digit code: ")
+        body = { "securityCode" => { "code" => code.to_s } }.to_json
+      end
+
       puts("Requesting session...")
 
       # Send securityCode back to server to get a valid session
       r = request(:post) do |req|
-        req.url("https://idmsa.apple.com/appleauth/auth/verify/trusteddevice/securitycode")
+        req.url("https://idmsa.apple.com/appleauth/auth/verify/#{code_type}/securitycode")
         req.headers['Content-Type'] = 'application/json'
-        req.body = { "securityCode" => { "code" => code.to_s } }.to_json
+        req.body = body
 
         update_request_headers(req)
       end
@@ -210,6 +222,38 @@ module Spaceship
       req.headers["X-Apple-Widget-Key"] = self.itc_service_key
       req.headers["Accept"] = "application/json"
       req.headers["scnt"] = @scnt
+    end
+
+    private
+
+    def request_two_factor_code_from_phone_choose(phone_numbers, code_length)
+      puts("Please select a trusted phone number to send code to:")
+
+      available = phone_numbers.collect do |current|
+        current['numberWithDialCode']
+      end
+      choosen_phone_number = choose(*available)
+      phone_id = nil
+      phone_numbers.each do |phone|
+        phone_id = phone['id'] if phone['numberWithDialCode'] == choosen_phone_number
+      end
+
+      # Request code
+      r = request(:put) do |req|
+        req.url("https://idmsa.apple.com/appleauth/auth/verify/phone")
+        req.headers['Content-Type'] = 'application/json'
+        req.body = { "phoneNumber" => { "id" => phone_id }, "mode" => "sms" }.to_json
+        update_request_headers(req)
+      end
+
+      # we use `Spaceship::TunesClient.new.handle_itc_response`
+      # since this might be from the Dev Portal, but for 2 step
+      Spaceship::TunesClient.new.handle_itc_response(r.body)
+      puts("Successfully requested text message to #{choosen_phone_number}")
+
+      code = ask("Please enter the #{code_length} digit code you received at #{choosen_phone_number}:")
+
+      return { "securityCode" => { "code" => code.to_s }, "phoneNumber" => { "id" => phone_id }, "mode" => "sms" }.to_json
     end
   end
 end
