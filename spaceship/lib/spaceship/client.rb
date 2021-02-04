@@ -456,7 +456,64 @@ module Spaceship
         fetch_olympus_session
         return true
       else
-        if (response.body || "").include?('invalid="true"')
+        location_header = response.headers['location']
+        # Bypass security prompt
+        if response.status == 412 && response.body['authType'] == 'sa' && location_header.include?('repair')
+          apple_scnt = response.headers['scnt']
+          raise Tunes::Error.new, 'Missing scnt Header!' if apple_scnt.nil?
+
+          apple_auth_attributes = response.headers['x-apple-auth-attributes']
+          raise Tunes::Error.new, 'Missing Apple Auth Attributes Header!' if apple_auth_attributes.nil?
+
+          apple_id_session_id = response.headers['x-apple-id-session-id']
+          raise Tunes::Error.new, 'Missing Session ID Header!' if apple_id_session_id.nil?
+
+          repair_session_token = response.headers['x-apple-repair-session-token']
+          raise Tunes::Error.new, 'Missing Repair Session Token Header!' if repair_session_token.nil?
+
+          if (matches = location_header.match(/widgetKey=([^&]+)/))
+            repair_widget_key = matches[1]
+          end
+          raise Tunes::Error.new, 'Missing Repair Widget Key!' if repair_widget_key.nil?
+
+          # Get Repair Widget from Location Header
+          repair_widget_response = request :get, location_header
+
+          # Parse Repair Session ID from Widget Response
+          if (matches = repair_widget_response.body.match(/"sessionId":"([^"]+)"/))
+            repair_session_id = matches[1]
+          end
+          raise Tunes::Error.new, 'Could not get Session ID from Widget!' if repair_session_id.nil?
+
+          response = request(:get) do |req|
+            # Let Apple know we will set it up later
+            req.url('https://appleid.apple.com/account/security/upgrade/setuplater')
+            req.headers['Content-Type'] = 'application/json'
+            req.headers['X-Requested-With'] = 'XMLHttpRequest'
+            req.headers['Accept'] = 'application/json, text/javascript'
+            req.headers['X-Apple-ID-Session-Id'] = repair_session_id
+            req.headers['X-Apple-Session-Token'] = repair_session_token
+            req.headers['X-Apple-Widget-Key'] = repair_widget_key
+          end
+          repair_session_token = response.headers['x-apple-session-token']
+
+          # Let Apple know we completed the security review
+          response = request(:post) do |req|
+            req.url('https://idmsa.apple.com/appleauth/auth/repair/complete')
+            req.headers['Content-Type'] = 'application/json'
+            req.headers['X-Requested-With'] = 'XMLHttpRequest'
+            req.headers['Accept'] = 'application/json, text/javascript'
+            req.headers['scnt'] = apple_scnt
+            req.headers['X-Apple-Repair-Session-Token'] = repair_session_token
+            req.headers['X-Apple-Widget-Key'] = repair_widget_key
+            req.headers['X-Apple-Auth-Attributes'] = apple_auth_attributes
+          end
+
+          fetch_olympus_session
+
+          return response
+
+        elsif (response.body || "").include?('invalid="true"')
           # User Credentials are wrong
           raise InvalidUserCredentialsError.new, "Invalid username and password combination. Used '#{user}' as the username."
         elsif (response['Set-Cookie'] || "").include?("itctx")
