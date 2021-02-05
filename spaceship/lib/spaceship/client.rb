@@ -485,18 +485,6 @@ module Spaceship
           end
           raise Tunes::Error.new, 'Could not get Session ID from Widget!' if repair_session_id.nil?
 
-          response = request(:get) do |req|
-            # Let Apple know we will set it up later
-            req.url('https://appleid.apple.com/account/security/upgrade/setuplater')
-            req.headers['Content-Type'] = 'application/json'
-            req.headers['X-Requested-With'] = 'XMLHttpRequest'
-            req.headers['Accept'] = 'application/json, text/javascript'
-            req.headers['X-Apple-ID-Session-Id'] = repair_session_id
-            req.headers['X-Apple-Session-Token'] = repair_session_token
-            req.headers['X-Apple-Widget-Key'] = repair_widget_key
-          end
-          repair_session_token = response.headers['x-apple-session-token']
-
           # Let Apple know we completed the security review
           response = request(:post) do |req|
             req.url('https://idmsa.apple.com/appleauth/auth/repair/complete')
@@ -509,6 +497,7 @@ module Spaceship
             req.headers['X-Apple-Auth-Attributes'] = apple_auth_attributes
           end
 
+          # Finsh login process
           fetch_olympus_session
 
           return response
