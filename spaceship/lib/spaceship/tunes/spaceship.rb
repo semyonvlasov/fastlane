@@ -20,8 +20,8 @@ module Spaceship
       # @raise InvalidUserCredentialsError: raised if authentication failed
       #
       # @return (Spaceship::Client) The client the login method was called for
-      def login(user = nil, password = nil)
-        @client = TunesClient.login(user, password)
+      def login(user = nil, password = nil, twilio_client = nil, twilio_number = nil)
+        @client = TunesClient.login(user, password, twilio_client, twilio_number)
       end
 
       # Open up the team selection for the user (if necessary).

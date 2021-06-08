@@ -26,6 +26,8 @@ module Spaceship
 
     attr_reader :client
 
+    attr_reader :twilio_client
+
     # The user that is currently logged in
     attr_accessor :user
 
@@ -66,9 +68,9 @@ module Spaceship
     # @raise InvalidUserCredentialsError: raised if authentication failed
     #
     # @return (Spaceship::Client) The client the login method was called for
-    def self.login(user = nil, password = nil)
+    def self.login(user = nil, password = nil, twilio_client = nil, twilio_number = nil)
       instance = self.new
-      if instance.login(user, password)
+      if instance.login(user, password, twilio_client, twilio_number)
         instance
       else
         raise InvalidUserCredentialsError.new, "Invalid User Credentials"
@@ -336,7 +338,9 @@ module Spaceship
     # @raise InvalidUserCredentialsError: raised if authentication failed
     #
     # @return (Spaceship::Client) The client the login method was called for
-    def login(user = nil, password = nil)
+    def login(user = nil, password = nil, twilio_client = nil, twilio_number = nil)
+      @twilio_client = twilio_client || nil
+      @twilio_number = twilio_number || nil
       if user.to_s.empty? or password.to_s.empty?
         require 'credentials_manager/account_manager'
 
