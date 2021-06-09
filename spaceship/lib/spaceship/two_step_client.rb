@@ -243,18 +243,9 @@ module Spaceship
         phone_id = phone['id'] if phone['numberWithDialCode'] == choosen_phone_number
       end
 
-      # Request code
-      r = request(:put) do |req|
-        req.url("https://idmsa.apple.com/appleauth/auth/verify/phone")
-        req.headers['Content-Type'] = 'application/json'
-        req.body = { "phoneNumber" => { "id" => phone_id }, "mode" => "sms" }.to_json
-        update_request_headers(req)
-      end
+      chosen_phone_number = phone_numbers.find {|p| p['numberWithDialCode'] == choosen_phone_number}
 
-      # we use `Spaceship::TunesClient.new.handle_itc_response`
-      # since this might be from the Dev Portal, but for 2 step
-      Spaceship::TunesClient.new.handle_itc_response(r.body)
-      puts("Successfully requested text message to #{choosen_phone_number}")
+      request_code(chosen_phone_number)
 
       code = ask("Please enter the #{code_length} digit code you received at #{choosen_phone_number}:")
 
@@ -262,11 +253,28 @@ module Spaceship
     end
 
     def request_two_factor_code_from_twilio(phone_numbers)
-      target_phone_number_suffix = @twilio_number[-2..-1]
+      target_phone_number_suffix = '29' #@twilio_number[-2..-1]
       chosen_phone_number = phone_numbers.find {|p| p['obfuscatedNumber'].end_with?(target_phone_number_suffix) }
       timestamp = Time.now
 
-      # Request code
+      request_code(chosen_phone_number)
+
+      15.times do
+        messages = @twilio_client.messages.list(to: @twilio_number, date_sent_after: timestamp, limit: 1)
+        if messages.empty?
+          puts "No message yet, waiting a little longer..."
+          sleep(1)
+        else
+          # expected format: "Your Apple ID Code is: 810180. Don't share it with anyone."
+          code = messages.first.body.delete("^0-9")
+          return { "securityCode" => { "code" => code.to_s }, "phoneNumber" => { "id" => chosen_phone_number['id'] }, "mode" => "sms" }.to_json
+        end
+      end
+
+      raise Tunes::Error.new, "No verification code was sent"
+    end
+
+    def request_code(chosen_phone_number)
       r = request(:put) do |req|
         req.url("https://idmsa.apple.com/appleauth/auth/verify/phone")
         req.headers['Content-Type'] = 'application/json'
@@ -278,20 +286,6 @@ module Spaceship
       # since this might be from the Dev Portal, but for 2 step
       Spaceship::TunesClient.new.handle_itc_response(r.body)
       puts("Successfully requested text message to #{chosen_phone_number['numberWithDialCode']}")
-
-      24.times do
-        messages = @twilio_client.messages.list(to: @twilio_number, date_sent_after: timestamp, limit: 1)
-        if messages.empty?
-          puts "No message yet, waiting a little longer..."
-          sleep(5)
-        else
-          # expected format: "Your Apple ID Code is: 810180. Don't share it with anyone."
-          code = messages.first.body.delete("^0-9")
-          return { "securityCode" => { "code" => code.to_s }, "phoneNumber" => { "id" => chosen_phone_number['id'] }, "mode" => "sms" }.to_json
-        end
-      end
-
-      raise Tunes::Error.new, "No verification code was sent"
     end
   end
 end
