@@ -58,8 +58,6 @@ module Spaceship
       #  "securityCodeLocked"=>false}
       code_length = security_code["length"]
 
-      body = nil
-
       # Ask which phone number needs to be used for two factor auth
       if response.body["noTrustedDevices"]
         code_type = 'phone'
@@ -237,27 +235,27 @@ module Spaceship
       available = phone_numbers.collect do |current|
         current['numberWithDialCode']
       end
-      choosen_phone_number = choose(*available)
+      chosen_phone_number = choose(*available)
       phone_id = nil
       phone_numbers.each do |phone|
-        phone_id = phone['id'] if phone['numberWithDialCode'] == choosen_phone_number
+        phone_id = phone['id'] if phone['numberWithDialCode'] == chosen_phone_number
       end
 
-      chosen_phone_number = phone_numbers.find {|p| p['numberWithDialCode'] == choosen_phone_number}
+      phone_number = phone_numbers.find {|p| p['numberWithDialCode'] == chosen_phone_number}
 
-      request_code(chosen_phone_number)
+      request_code(phone_number)
 
-      code = ask("Please enter the #{code_length} digit code you received at #{choosen_phone_number}:")
+      code = ask("Please enter the #{code_length} digit code you received at #{chosen_phone_number}:")
 
-      return { "securityCode" => { "code" => code.to_s }, "phoneNumber" => { "id" => phone_id }, "mode" => "sms" }.to_json
+      { "securityCode" => { "code" => code.to_s }, "phoneNumber" => { "id" => phone_id }, "mode" => "sms" }.to_json
     end
 
     def request_two_factor_code_from_twilio(phone_numbers)
       target_phone_number_suffix = '29' #@twilio_number[-2..-1]
-      chosen_phone_number = phone_numbers.find {|p| p['obfuscatedNumber'].end_with?(target_phone_number_suffix) }
+      phone_number = phone_numbers.find {|p| p['obfuscatedNumber'].end_with?(target_phone_number_suffix) }
       timestamp = Time.now
 
-      request_code(chosen_phone_number)
+      request_code(phone_number)
 
       15.times do
         messages = @twilio_client.messages.list(to: @twilio_number, date_sent_after: timestamp, limit: 1)
@@ -267,7 +265,7 @@ module Spaceship
         else
           # expected format: "Your Apple ID Code is: 810180. Don't share it with anyone."
           code = messages.first.body.delete("^0-9")
-          return { "securityCode" => { "code" => code.to_s }, "phoneNumber" => { "id" => chosen_phone_number['id'] }, "mode" => "sms" }.to_json
+          return { "securityCode" => { "code" => code.to_s }, "phoneNumber" => { "id" => phone_number['id'] }, "mode" => "sms" }.to_json
         end
       end
 
