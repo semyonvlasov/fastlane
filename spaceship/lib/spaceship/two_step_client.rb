@@ -257,6 +257,7 @@ module Spaceship
 
       request_code(phone_number)
 
+      # retry up to 15x with 1s delay
       15.times do
         messages = @twilio_client.messages.list(to: @twilio_number, date_sent_after: timestamp, limit: 1)
         if messages.empty?
