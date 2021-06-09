@@ -24,9 +24,7 @@ module Spaceship
     PROTOCOL_VERSION = "QH65B2"
     USER_AGENT = "Spaceship #{Fastlane::VERSION}"
 
-    attr_reader :client
-
-    attr_reader :twilio_client
+    attr_reader :client, :twilio_client
 
     # The user that is currently logged in
     attr_accessor :user
