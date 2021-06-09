@@ -251,7 +251,7 @@ module Spaceship
     end
 
     def request_two_factor_code_from_twilio(phone_numbers)
-      target_phone_number_suffix = '29' #@twilio_number[-2..-1]
+      target_phone_number_suffix = @twilio_number[-2..-1]
       phone_number = phone_numbers.find {|p| p['obfuscatedNumber'].end_with?(target_phone_number_suffix) }
       timestamp = Time.now
 
