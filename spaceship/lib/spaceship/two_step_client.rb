@@ -58,8 +58,6 @@ module Spaceship
       #  "securityCodeLocked"=>false}
       code_length = security_code["length"]
 
-      body = nil
-
       # Ask which phone number needs to be used for two factor auth
       if response.body["noTrustedDevices"]
         code_type = 'phone'
@@ -260,8 +258,9 @@ module Spaceship
       request_code(phone_number)
 
       # wait a few seconds for the message to arrive
-      sleep(5)
+      sleep(@mail_delay)
 
+      # google voice doesn't have an API we can check, but has the option to forward messages to email
       imap = Net::IMAP.new("imap.gmail.com", 993, true, nil, false)
       imap.login @google_account, @google_password
       imap.examine("Inbox")
@@ -286,7 +285,7 @@ module Spaceship
       # we use `Spaceship::TunesClient.new.handle_itc_response`
       # since this might be from the Dev Portal, but for 2 step
       Spaceship::TunesClient.new.handle_itc_response(r.body)
-      puts("Successfully requested text message to #{chosen_phone_number}")
+      puts("Successfully requested text message to #{chosen_phone_number['numberWithDialCode']}")
     end
   end
 end
