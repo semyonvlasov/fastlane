@@ -20,8 +20,8 @@ module Spaceship
       # @raise InvalidUserCredentialsError: raised if authentication failed
       #
       # @return (Spaceship::Client) The client the login method was called for
-      def login(user = nil, password = nil)
-        @client = TunesClient.login(user, password)
+      def login(user = nil, password = nil, google_number = nil, google_account = nil, google_password = nil)
+        @client = TunesClient.login(user, password, google_number, google_account, google_password)
       end
 
       # Open up the team selection for the user (if necessary).
