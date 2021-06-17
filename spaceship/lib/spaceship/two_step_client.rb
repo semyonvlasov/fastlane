@@ -1,4 +1,5 @@
 require 'tempfile'
+require 'net/imap'
 
 require_relative 'globals'
 require_relative 'tunes/tunes_client'
@@ -57,12 +58,14 @@ module Spaceship
       #  "securityCodeLocked"=>false}
       code_length = security_code["length"]
 
-      body = nil
-
       # Ask which phone number needs to be used for two factor auth
       if response.body["noTrustedDevices"]
         code_type = 'phone'
-        body = request_two_factor_code_from_phone_choose(response.body["trustedPhoneNumbers"], code_length)
+        if @google_account && @google_number && @google_password
+          body = request_two_factor_code_with_google_voice(response.body["trustedPhoneNumbers"])
+        else
+          body = request_two_factor_code_from_phone_choose(response.body["trustedPhoneNumbers"], code_length)
+        end
       else
         code_type = 'trusteddevice'
         # Prompt for code
@@ -232,28 +235,57 @@ module Spaceship
       available = phone_numbers.collect do |current|
         current['numberWithDialCode']
       end
-      choosen_phone_number = choose(*available)
+      chosen_phone_number = choose(*available)
       phone_id = nil
       phone_numbers.each do |phone|
-        phone_id = phone['id'] if phone['numberWithDialCode'] == choosen_phone_number
+        phone_id = phone['id'] if phone['numberWithDialCode'] == chosen_phone_number
       end
 
-      # Request code
+      phone_number = phone_numbers.find { |phone| phone['numberWithDialCode'] == chosen_phone_number}
+
+      request_code(phone_number)
+
+      code = ask("Please enter the #{code_length} digit code you received at #{chosen_phone_number}:")
+
+      { "securityCode" => { "code" => code.to_s }, "phoneNumber" => { "id" => phone_id }, "mode" => "sms" }.to_json
+    end
+
+    def request_two_factor_code_with_google_voice(phone_numbers)
+      target_phone_number_suffix = @google_number[-2..-1]
+      phone_number = phone_numbers.find { |p| p['obfuscatedNumber'].end_with?(target_phone_number_suffix) }
+      today = Time.now.strftime "%d-%b-%Y"
+
+      request_code(phone_number)
+
+      # wait a few seconds for the message to arrive
+      sleep(@mail_delay)
+
+      # google voice doesn't have an API we can check, but has the option to forward messages to email
+      imap = Net::IMAP.new("imap.gmail.com", 993, true, nil, false)
+      imap.login @google_account, @google_password
+      imap.examine("Inbox")
+      uid = imap.uid_search(["SUBJECT", "New text message", "SINCE", today]).last
+
+      raise Tunes::Error.new, "No verification code was sent" unless uid
+
+      bt = imap.uid_fetch(uid, "BODY[TEXT]")[0].attr['BODY[TEXT]']
+      code = /Your Apple ID Code is: [0-9]{6}/.match(bt)[0][-6..-1]
+
+      { "securityCode" => { "code" => code.to_s }, "phoneNumber" => { "id" => phone_number['id'] }, "mode" => "sms" }.to_json
+    end
+
+    def request_code(chosen_phone_number)
       r = request(:put) do |req|
         req.url("https://idmsa.apple.com/appleauth/auth/verify/phone")
         req.headers['Content-Type'] = 'application/json'
-        req.body = { "phoneNumber" => { "id" => phone_id }, "mode" => "sms" }.to_json
+        req.body = { "phoneNumber" => { "id" => chosen_phone_number['id'] }, "mode" => "sms" }.to_json
         update_request_headers(req)
       end
 
       # we use `Spaceship::TunesClient.new.handle_itc_response`
       # since this might be from the Dev Portal, but for 2 step
       Spaceship::TunesClient.new.handle_itc_response(r.body)
-      puts("Successfully requested text message to #{choosen_phone_number}")
-
-      code = ask("Please enter the #{code_length} digit code you received at #{choosen_phone_number}:")
-
-      return { "securityCode" => { "code" => code.to_s }, "phoneNumber" => { "id" => phone_id }, "mode" => "sms" }.to_json
+      puts("Successfully requested text message to #{chosen_phone_number['numberWithDialCode']}")
     end
   end
 end
