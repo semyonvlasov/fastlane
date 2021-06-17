@@ -241,7 +241,7 @@ module Spaceship
         phone_id = phone['id'] if phone['numberWithDialCode'] == chosen_phone_number
       end
 
-      phone_number = phone_numbers.find {|p| p['numberWithDialCode'] == chosen_phone_number}
+      phone_number = phone_numbers.find { |phone| phone['numberWithDialCode'] == chosen_phone_number}
 
       request_code(phone_number)
 
