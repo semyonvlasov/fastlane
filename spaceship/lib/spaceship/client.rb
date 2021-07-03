@@ -66,9 +66,9 @@ module Spaceship
     # @raise InvalidUserCredentialsError: raised if authentication failed
     #
     # @return (Spaceship::Client) The client the login method was called for
-    def self.login(user = nil, password = nil, google_number = nil, google_account = nil, google_password = nil, mail_delay = 5)
+    def self.login(user = nil, password = nil, options = {})
       instance = self.new
-      if instance.login(user, password, google_number, google_account, google_password, mail_delay)
+      if instance.login(user, password, options)
         instance
       else
         raise InvalidUserCredentialsError.new, "Invalid User Credentials"
@@ -336,11 +336,8 @@ module Spaceship
     # @raise InvalidUserCredentialsError: raised if authentication failed
     #
     # @return (Spaceship::Client) The client the login method was called for
-    def login(user = nil, password = nil, google_number = nil, google_account = nil, google_password = nil, mail_delay = 5)
-      @google_number = google_number || nil
-      @google_account = google_account || nil
-      @google_password = google_password || nil
-      @mail_delay = mail_delay
+    def login(user = nil, password = nil, options = {})
+      @login_options = options
       if user.to_s.empty? or password.to_s.empty?
         require 'credentials_manager/account_manager'
 

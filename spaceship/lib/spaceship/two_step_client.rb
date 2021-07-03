@@ -41,6 +41,7 @@ module Spaceship
         device_id = result.match(/.*\t.*\t\((.*)\)/)[1]
         select_device(r, device_id)
       elsif r.body.kind_of?(Hash) && r.body["trustedPhoneNumbers"].kind_of?(Array) && r.body["trustedPhoneNumbers"].first.kind_of?(Hash)
+        raise Tunes::Error.new, 'This request requires two-factor authentication, but non-interactive mode is enabled' if @login_options[:non_interactive_mode]
         handle_two_factor(r)
       else
         raise "Invalid 2 step response #{r.body}"
@@ -61,7 +62,7 @@ module Spaceship
       # Ask which phone number needs to be used for two factor auth
       if response.body["noTrustedDevices"]
         code_type = 'phone'
-        if @google_account && @google_number && @google_password
+        if %i[google_account google_number google_password].all? {|s| @login_options.key? s}
           body = request_two_factor_code_with_google_voice(response.body["trustedPhoneNumbers"])
         else
           body = request_two_factor_code_from_phone_choose(response.body["trustedPhoneNumbers"], code_length)
@@ -251,18 +252,18 @@ module Spaceship
     end
 
     def request_two_factor_code_with_google_voice(phone_numbers)
-      target_phone_number_suffix = @google_number[-2..-1]
+      target_phone_number_suffix = @login_options[:google_number][-2..-1]
       phone_number = phone_numbers.find { |p| p['obfuscatedNumber'].end_with?(target_phone_number_suffix) }
       today = Time.now.strftime "%d-%b-%Y"
 
       request_code(phone_number)
 
       # wait a few seconds for the message to arrive
-      sleep(@mail_delay)
+      sleep @login_options[:mail_delay] || 5
 
       # google voice doesn't have an API we can check, but has the option to forward messages to email
       imap = Net::IMAP.new("imap.gmail.com", 993, true, nil, false)
-      imap.login @google_account, @google_password
+      imap.login @login_options[:google_account], @login_options[:google_password]
       imap.examine("Inbox")
       uid = imap.uid_search(["SUBJECT", "New text message", "SINCE", today]).last
 
