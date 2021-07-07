@@ -62,7 +62,7 @@ module Spaceship
       # Ask which phone number needs to be used for two factor auth
       if response.body["noTrustedDevices"]
         code_type = 'phone'
-        if %i[google_account google_number google_password].all? {|s| @login_options.key? s}
+        if %i[google_account google_number google_password].all? {|login_option| @login_options.key? login_option}
           body = request_two_factor_code_with_google_voice(response.body["trustedPhoneNumbers"])
         else
           body = request_two_factor_code_from_phone_choose(response.body["trustedPhoneNumbers"], code_length)
