@@ -26,6 +26,9 @@ module Spaceship
       super
 
       @du_client = DUClient.new
+
+      # Used by most iris requests starting in July 2021
+      @additional_headers = { 'x-csrf-itc': '[asc-ui]' }
     end
 
     class << self
