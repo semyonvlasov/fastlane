@@ -82,10 +82,10 @@ module Spaceship
 
     # @return (Array) A list of all available teams
     def teams
-      user_details_data['associatedAccounts'].sort_by do |team|
+      user_details_data['availableProviders'].sort_by do |team|
         [
-          team['contentProvider']['name'],
-          team['contentProvider']['contentProviderId']
+          team['name'],
+          team['providerId']
         ]
       end
     end
@@ -136,8 +136,8 @@ module Spaceship
     #  "userName"=>"detlef@krausefx.com"}
     def user_details_data
       return @_cached_user_details if @_cached_user_details
-      r = request(:get, '/WebObjects/iTunesConnect.woa/ra/user/detail')
-      @_cached_user_details = parse_response(r, 'data')
+      r = request(:get, "https://appstoreconnect.apple.com/olympus/v1/session")
+      @_cached_user_details = parse_response(r)
     end
 
     # @return (String) The currently selected Team ID
@@ -147,7 +147,7 @@ module Spaceship
       if teams.count > 1
         puts("The current user is in #{teams.count} teams. Pass a team ID or call `select_team` to choose a team. Using the first one for now.")
       end
-      @current_team_id ||= teams[0]['contentProvider']['contentProviderId']
+      @current_team_id ||= teams[0]['providerId']
     end
 
     # Set a new team ID which will be used from now on
@@ -159,9 +159,9 @@ module Spaceship
       #
       available_teams = teams.collect do |team|
         {
-          team_id: (team["contentProvider"] || {})["contentProviderId"],
-          public_team_id: (team["contentProvider"] || {})["contentProviderPublicId"],
-          team_name: (team["contentProvider"] || {})["name"]
+          team_id: team["providerId"],
+          public_team_id: team["publicProviderId"],
+          team_name: team["name"]
         }
       end
 
@@ -175,21 +175,10 @@ module Spaceship
       end
 
       response = request(:post) do |req|
-        req.url("https://appstoreconnect.apple.com/olympus/v1/providerSwitchRequests")
-        req.body = {
-          "data": {
-            "type": "providerSwitchRequests",
-            "relationships": {
-              "provider": {
-                "data": {
-                  "type": "providers",
-                  "id": result[:public_team_id]
-                }
-              }
-            }
-          }
-        }.to_json
+        req.url("https://appstoreconnect.apple.com/olympus/v1/session")
+        req.body = { "provider": { "providerId": result[:team_id] } }.to_json
         req.headers['Content-Type'] = 'application/json'
+        req.headers['X-Requested-With'] = 'olympus-ui'
       end
 
       handle_itc_response(response.body)
