@@ -726,7 +726,11 @@ module Spaceship
 
     def log_response(method, url, response)
       body = response.body.kind_of?(String) ? response.body.force_encoding(Encoding::UTF_8) : response.body
-      logger.debug("<< #{method.upcase}: #{url}: #{body}")
+      begin
+        logger.debug("<< #{method.upcase}: #{url}: #{body}")
+      rescue => ex
+        logger.debug("<< #{method.upcase}: #{url}: :: Fastlane ran into error when logging body.")
+      end
     end
 
     # Actually sends the request to the remote server
