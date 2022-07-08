@@ -662,9 +662,9 @@ module Spaceship
 
     def detect_most_common_errors_and_raise_exceptions(body)
       # Check if the failure is due to missing permissions (iTunes Connect)
-      if body["messages"] && body["messages"] && body["messages"]["error"].include?("Forbidden")
+      if body["messages"] && body["messages"]["error"] && body["messages"]["error"].include?("Forbidden")
         raise_insuffient_permission_error!
-      elsif body["messages"] && body["messages"] && body["messages"]["error"].include?("insufficient privileges")
+      elsif body["messages"] && body["messages"]["error"] && body["messages"]["error"].include?("insufficient privileges")
         # Passing a specific `caller_location` here to make sure we return the correct method
         # With the default location the error would say that `parse_response` is the caller
         raise_insuffient_permission_error!(caller_location: 3)
