@@ -639,25 +639,25 @@ module Spaceship
 
         content = expected_key ? response.body[expected_key] : response.body
       end
-      if content.nil?
-        detect_most_common_errors_and_raise_exceptions(response.body) if response.body
-        raise UnexpectedResponse, response.body
-      elsif content.kind_of?(Hash) && (content["resultString"] || "").include?("NotAllowed")
-        # example content when doing a Developer Portal action with not enough permission
-        # => {"responseId"=>"e5013d83-c5cb-4ba0-bb62-734a8d56007f",
-        #    "resultCode"=>1200,
-        #    "resultString"=>"webservice.certificate.downloadNotAllowed",
-        #    "userString"=>"You are not permitted to download this certificate.",
-        #    "creationTimestamp"=>"2017-01-26T22:44:13Z",
-        #    "protocolVersion"=>"QH65B2",
-        #    "userLocale"=>"en_US",
-        #    "requestUrl"=>"https://developer.apple.com/services-account/QH65B2/account/ios/certificate/downloadCertificateContent.action",
-        #    "httpCode"=>200}
-        raise_insuffient_permission_error!(additional_error_string: content["userString"])
-      else
-        store_csrf_tokens(response)
-        content
-      end
+      # if content.nil?
+      #   detect_most_common_errors_and_raise_exceptions(response.body) if response.body
+      #   raise UnexpectedResponse, response.body
+      # elsif content.kind_of?(Hash) && (content["resultString"] || "").include?("NotAllowed")
+      #   # example content when doing a Developer Portal action with not enough permission
+      #   # => {"responseId"=>"e5013d83-c5cb-4ba0-bb62-734a8d56007f",
+      #   #    "resultCode"=>1200,
+      #   #    "resultString"=>"webservice.certificate.downloadNotAllowed",
+      #   #    "userString"=>"You are not permitted to download this certificate.",
+      #   #    "creationTimestamp"=>"2017-01-26T22:44:13Z",
+      #   #    "protocolVersion"=>"QH65B2",
+      #   #    "userLocale"=>"en_US",
+      #   #    "requestUrl"=>"https://developer.apple.com/services-account/QH65B2/account/ios/certificate/downloadCertificateContent.action",
+      #   #    "httpCode"=>200}
+      #   raise_insuffient_permission_error!(additional_error_string: content["userString"])
+      # else
+      store_csrf_tokens(response)
+      content
+      # end
     end
 
     def detect_most_common_errors_and_raise_exceptions(body)
