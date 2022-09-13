@@ -44,7 +44,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency('multipart-post', '~> 2.0.0') # Needed for uploading builds to appetize
   spec.add_dependency('word_wrap', '~> 1.0.0') # to add line breaks for tables with long strings
 
-  spec.add_dependency('public_suffix', '~> 2.0.0') # https://github.com/fastlane/fastlane/issues/10162
+  spec.add_dependency('public_suffix', '< 5') # https://github.com/fastlane/fastlane/issues/10162
 
   # TTY dependencies
   spec.add_dependency('tty-screen', '>= 0.6.3', '< 1.0.0') # detect the terminal width
@@ -59,20 +59,20 @@ Gem::Specification.new do |spec|
   spec.add_dependency('gh_inspector', '>= 1.0.1', '< 2.0.0') # search for issues on GitHub when something goes wrong
   spec.add_dependency('highline', '>= 1.7.2', '< 2.0.0') # user inputs (e.g. passwords)
   spec.add_dependency('json', '< 3.0.0') # Because sometimes it's just not installed
-  spec.add_dependency('mini_magick', '~> 4.5.1') # To open, edit and export PSD files
+  spec.add_dependency('mini_magick', '~> 4.9.5') # To open, edit and export PSD files
   spec.add_dependency('multi_json') # Because sometimes it's just not installed
   spec.add_dependency('multi_xml', '~> 0.5')
-  spec.add_dependency('rubyzip', '>= 1.1.0', '< 2.0.0') # fix swift/ipa in gym
+  spec.add_dependency('rubyzip', '>= 1.1.0', '< 3.0.0') # fix swift/ipa in gym
   spec.add_dependency('security', '= 0.1.3') # macOS Keychain manager, a dead project, no updates expected
   spec.add_dependency('xcpretty-travis-formatter', '>= 0.0.3')
   spec.add_dependency('dotenv', '>= 2.1.1', '< 3.0.0')
   spec.add_dependency('bundler', '>= 1.12.0', '< 3.0.0') # Used for fastlane plugins
-  spec.add_dependency('faraday', '~> 0.9') # Used for deploygate, hockey and testfairy actions
-  spec.add_dependency('faraday_middleware', '~> 0.9') # same as faraday
+  spec.add_dependency('faraday', '>= 0.9', '< 1.20.0') # Used for deploygate, hockey and testfairy actions
+  spec.add_dependency('faraday_middleware', '>= 0.9', '< 1.20.0') # same as faraday
 
   # The Google API Client gem is *not* API stable between minor versions - hence the specific version locking here.
   # If you upgrade this gem, make sure to upgrade the users of it as well.
-  spec.add_dependency('google-api-client', '>= 0.13.1', '< 0.14.0') # Google API Client to access Play Publishing API
+  spec.add_dependency('google-api-client') # Google API Client to access Play Publishing API
 
   # Development only
   spec.add_development_dependency('rake', '< 12')
