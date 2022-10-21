@@ -885,7 +885,8 @@ module FastlaneCore
     # Returns whether altool should be used or ItunesTransporter should be used
     def should_use_altool?(upload, use_shell_script)
       # Xcode 14 no longer supports iTMSTransporter. Use altool instead
-      !use_shell_script && upload && !Helper.user_defined_itms_path? && Helper.mac? && Helper.xcode_at_least?(14)
+      # !use_shell_script && upload && !Helper.user_defined_itms_path? && Helper.mac? && Helper.xcode_at_least?(14)
+      true # force use of altool so we can test on jenkins
     end
 
     # Returns the password to be used with the transporter
