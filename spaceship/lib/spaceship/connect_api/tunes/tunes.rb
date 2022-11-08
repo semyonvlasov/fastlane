@@ -1220,6 +1220,24 @@ module Spaceship
         end
 
         #
+        # resolutionCenterThreads
+        #
+
+        def get_resolution_center_threads(review_submission_id:)
+          params = tunes_request_client.build_params(includes: 'reviewSubmission', filter: {reviewSubmission: review_submission_id})
+          tunes_request_client.get("resolutionCenterThreads", params)
+        end
+
+        #
+        # resolutionCenterMessages
+        #
+
+        def get_resolution_center_messages(resolution_center_thread_id:)
+          params = tunes_request_client.build_params(includes: 'fromActor,rejections,resolutionCenterMessageAttachments', limit: 100)
+          tunes_request_client.get("resolutionCenterThreads/#{resolution_center_thread_id}/resolutionCenterMessages", params)
+        end
+
+        #
         # sandboxTesters
         #
 

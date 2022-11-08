@@ -1,5 +1,6 @@
 require_relative '../model'
 require_relative './review_submission_item'
+require_relative './review_submission_thread'
 
 module Spaceship
   class ConnectAPI
@@ -68,6 +69,12 @@ module Spaceship
         client ||= Spaceship::ConnectAPI
         resp = client.post_review_submission_item(review_submission_id: id, app_store_version_id: app_store_version_id)
         return resp.to_models.first
+      end
+
+      def get_resolution_center_threads(client: nil)
+        client ||= Spaceship::ConnectAPI
+        resp = client.get_resolution_center_threads(review_submission_id: id)
+        return resp.to_models
       end
     end
   end
