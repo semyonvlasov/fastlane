@@ -38,6 +38,7 @@ module Spaceship
               open_timeout:  (ENV["SPACESHIP_TIMEOUT"] || 300).to_i
             }
           }
+          puts(token)
           @token = token
           @current_team_id = current_team_id
 
@@ -181,7 +182,7 @@ module Spaceship
           raise error
         else
           msg = "Token has expired or has been revoked! Trying to refresh..."
-          puts(msg) #if Spaceship::Globals.verbose?
+          puts(msg) if Spaceship::Globals.verbose?
           @token.refresh!
           retry
         end
