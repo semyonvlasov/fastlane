@@ -26,12 +26,16 @@ module Spaceship
         end
 
         if token.nil?
+          puts("RE: 1")
           if another_client.nil?
+            puts("RE: 11")
             super(cookie: cookie, current_team_id: current_team_id, csrf_tokens: csrf_tokens, timeout: 1200)
             return
           end
+          puts("RE: 12")
           super(cookie: another_client.instance_variable_get(:@cookie), current_team_id: another_client.team_id, csrf_tokens: another_client.csrf_tokens)
         else
+          puts("RE: 2")
           options = {
             request: {
               timeout:       (ENV["SPACESHIP_TIMEOUT"] || 300).to_i,
