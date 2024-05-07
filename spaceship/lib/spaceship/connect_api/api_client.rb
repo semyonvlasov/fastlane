@@ -181,7 +181,7 @@ module Spaceship
           raise error
         else
           msg = "Token has expired or has been revoked! Trying to refresh..."
-          puts(msg) if Spaceship::Globals.verbose?
+          puts(msg) #if Spaceship::Globals.verbose?
           @token.refresh!
           retry
         end
